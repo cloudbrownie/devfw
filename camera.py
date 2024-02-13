@@ -1,6 +1,10 @@
 import pygame
 
-from .glob import Singleton
+try:
+  from .elems import Singleton
+except:
+  from elems  import Singleton
+
 
 class Camera(Singleton):
   MIN_SIZE : tuple = 100, 100

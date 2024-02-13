@@ -1,8 +1,13 @@
 import pygame
 import time
 
-from .glob import Singleton
-from .mgl  import MGL, RenderObject
+try:
+  from .elems import Singleton
+  from .mgl   import MGL, RenderObject
+except:
+  from elems  import Singleton
+  from mgl    import MGL, RenderObject
+
 
 class Window(Singleton):
   def __init__(self, width:int, height:int, caption:str='template', opengl=False, icon_path:str=None):

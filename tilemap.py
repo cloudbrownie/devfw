@@ -1,4 +1,7 @@
-from .glob import Singleton
+try:
+  from .elems import Singleton
+except:
+  from elems  import Singleton
 
 class Tilemap(Singleton):
   def __init__(self, chunk_size:int=16, tile_size:int=16):

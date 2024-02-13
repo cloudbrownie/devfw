@@ -3,8 +3,13 @@ import pygame
 
 from array import array
 
-from .glob import Element, Singleton
-from .utils import read_file
+try:
+  from .elems import Element, Singleton
+  from .utils import read_file
+except:
+  from elems  import Element, Singleton
+  from utils  import read_file
+
 
 def_vert_shader = '''
 #version 330 core

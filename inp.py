@@ -2,8 +2,13 @@ import pygame
 import sys
 import functools
 
-from .glob  import Singleton
-from .utils import bind_func
+try:
+  from .elems import Singleton
+  from .utils import bind_func
+except: 
+  from elems  import Singleton
+  from utils  import bind_func
+
 
 class KeyListener:
   ONPRESS = 1
@@ -121,8 +126,10 @@ class MouseListener:
     return f'Left Click:   {str(self.m1)}\nRight Click:  {str(self.m2)}\nMiddle Click: {str(self.m3)}'
 
 class Input(Singleton):
-  def __init__(self, custom_cursor:callable=None):
+  def __init__(self, app_name:str, custom_cursor:callable=None):
     super().__init__()
+
+    self.app_name : str = app_name
 
     self.mouse : MouseListener = MouseListener()
     self.custom_cursor : bool = False
@@ -152,11 +159,11 @@ class Input(Singleton):
 
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
-        self.elements['ASE'].running = False
+        self.elements[self.app_name].running = False
 
       elif event.type == pygame.KEYDOWN:
         if event.key == pygame.K_ESCAPE:
-          self.elements['ASE'].running = False
+          self.elements[self.app_name].running = False
 
         if event.key in self.keyboard_listeners:
           self.keyboard_listeners[event.key].trigger()

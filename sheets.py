@@ -1,6 +1,10 @@
 import pygame
 
-from .glob import Singleton
+try:
+  from .elems import Singleton
+except:
+  from elems  import Singleton
+
 
 MARKER : tuple = 255, 0, 170, 255
 
