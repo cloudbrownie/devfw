@@ -16,20 +16,21 @@ class Particle(Element):
                vel:pygame.Vector2=None, life_time:float=0):
     super().__init__()
     self.life_time : float = life_time
+    self.dead : bool = False
 
     self.pos : pygame.Vector2 = pygame.Vector2() if not pos else pos
     self.vel : pygame.Vector2 = pygame.Vector2() if not vel else vel
 
   # can overload this in inheritors
-  @property
   def is_dead(self) -> bool:
-    return self.life_time == 0
+    return self.dead
 
   def move(self) -> None:
     self.pos += self.vel * self.elements['Window'].dt
 
   def update(self) -> None:
     ...
+
 # emits particles
 class Emitter(Element):
   def __init__(
@@ -56,17 +57,10 @@ class Emitter(Element):
     if self.emitting and time.time() - self.last_emit >= self.emit_delay:
       self.last_emit = time.time()
       
-      particle = self.pool.get_next(self.force)
-      if not particle:
-        return
-      
-      particle.life_time = 10
-      particle.pos.update(self.source)
-      
       vel = random.uniform(self.vel_range[0], self.vel_range[1])
       ang = random.uniform(self.ang_range[0], self.ang_range[1])
 
-      particle.vel.update(vel * math.cos(ang), vel * math.sin(ang))
+      self.pool.create_particle(self.source.xy, vel, ang, self.force)
 
   def set_emit_source(self, x:int, y:int) -> None:
     self.source.update(x, y)
@@ -107,27 +101,22 @@ class ParticlePool(Element):
   def available(self) -> int:
     return len(self.pool) - self.particle_index
   
-  @property
-  def has_next(self) -> bool:
-    return self.available != 0
-  
   # only call when forcing particles to be available
   def get_next(self, force:bool=False) -> Particle:
-    # none available and not forcing 
-    if not self.has_next and not force:
-      return None
-
+    # available
+    if self.available > 0:
+      p = self.pool[self.particle_index]
+      self.particle_index += 1
+      return p
+  
     # none available but forcing one to be available
-    if not self.has_next and force:
+    elif self.available == 0 and force:
       sample_index = random.randint(0, len(self.pool) - 1)
       self._swap_particles(sample_index, len(self.pool) - 1)
       return self.pool[sample_index]
 
-    # available
-    p = self.pool[self.particle_index]
-    self.particle_index += 1
-    return p
-
+    return None
+    
   def modify_size(self, new_size:int) -> None:
     if new_size > len(self.pool):
       for _ in range(new_size - len(self.pool)):
@@ -161,7 +150,7 @@ class ParticlePool(Element):
     if not p:
       return
     
-    p.life_time = 10
+    p.dead = False
     p.pos.update(src[0], src[1])
     p.vel.update(vel * math.cos(ang), vel * math.sin(ang))
 
@@ -176,11 +165,11 @@ class ParticlePool(Element):
       emitter.update()
 
     for i in range(self.particle_index):
-      # if particle is dead, swap to back
-      if self.pool[i].is_dead:
-        self._swap_particles(i, self.particle_index)
-        self.particle_index -= 1
-        continue
-
       # otherwise, update particle
       self.pool[i].update()
+
+      if self.pool[i].is_dead():
+        self.pool[i].dead = True
+
+        self._swap_particles(i, self.particle_index - 1)
+        self.particle_index -= 1
