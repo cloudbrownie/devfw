@@ -156,6 +156,21 @@ class ParticlePool(Element):
     self.emitters.append(Emitter(self, emit_delay=emit_delay))
     return self.emitters[-1]
 
+  def create_particle(self, src:tuple, vel:float, ang:float, force:bool=False):
+    p = self.get_next(force)
+    if not p:
+      return
+    
+    p.life_time = 10
+    p.pos.update(src[0], src[1])
+    p.vel.update(vel * math.cos(ang), vel * math.sin(ang))
+
+  def burst(self, src:tuple, num:int, vel_range:tuple, ang_range:tuple, force:bool=False):
+    for _ in range(num):
+      vel = random.uniform(vel_range[0], vel_range[1])
+      ang = random.uniform(ang_range[0], ang_range[1])
+      self.create_particle(src, vel, ang, force)
+
   def update(self) -> None:
     for emitter in self.emitters:
       emitter.update()
