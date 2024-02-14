@@ -57,5 +57,5 @@ class Window(Singleton):
     self.window.fill(self.bg_color)
     if self.render_obj:
       self.elements['MGL'].context.clear(*[self.bg_color[i] / 255 for i in range(3)], 1.0)
-    self.dt = self.clock.tick(self.fps_limit) / 1000
+    self.dt = min(max(self.clock.tick(self.fps_limit) / 1000, 1 / self.fps_limit), 1)
     self.rt = time.time() - self.start_time
