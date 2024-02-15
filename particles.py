@@ -15,7 +15,6 @@ class Particle(Element):
   def __init__(self, pos:pygame.Vector2=None,
                vel:pygame.Vector2=None, life_time:float=0):
     super().__init__()
-    self.life_time : float = life_time
     self.dead : bool = False
 
     self.pos : pygame.Vector2 = pygame.Vector2() if not pos else pos
@@ -24,6 +23,16 @@ class Particle(Element):
   # can overload this in inheritors
   def is_dead(self) -> bool:
     return self.dead
+
+  # overload in inheritors
+  def reset(self) -> bool:
+    self.dead = False
+
+  def set_vel(self, x:float, y:float) -> None:
+    self.vel.update(x, y)
+
+  def set_pos(self, x:float, y:float) -> None:
+    self.pos.update(x, y)
 
   def move(self) -> None:
     self.pos += self.vel * self.elements['Window'].dt
@@ -149,10 +158,10 @@ class ParticlePool(Element):
     p = self.get_next(force)
     if not p:
       return
-    
-    p.dead = False
-    p.pos.update(src[0], src[1])
-    p.vel.update(vel * math.cos(ang), vel * math.sin(ang))
+
+    p.reset()
+    p.set_pos(src[0], src[1])
+    p.set_vel(vel * math.cos(ang), vel * math.sin(ang))
 
   def burst(self, src:tuple, num:int, vel_range:tuple, ang_range:tuple, force:bool=False):
     for _ in range(num):
