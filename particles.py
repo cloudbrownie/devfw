@@ -34,6 +34,9 @@ class Particle(Element):
   def set_pos(self, x:float, y:float) -> None:
     self.pos.update(x, y)
 
+  def set_kwargs(self, **kwargs) -> None:
+    ...
+
   def move(self) -> None:
     self.pos += self.vel * self.elements['Window'].dt
 
@@ -43,14 +46,15 @@ class Particle(Element):
 # emits particles
 class Emitter(Element):
   def __init__(
-      self, 
+      self,
       pool:'ParticlePool', # type: ignore
-      source:pygame.Vector2=None, 
+      source:pygame.Vector2=None,
       vel_range:tuple=(0,0),
-      ang_range:tuple=(0,0), 
+      ang_range:tuple=(0,0),
       emit_delay:float=999999999,
-      force:bool=False
-    ):    
+      force:bool=False,
+      **kwargs
+    ):
 
     super().__init__()
     self.pool       : ParticlePool   = pool
@@ -61,15 +65,16 @@ class Emitter(Element):
     self.vel_range  : tuple          = vel_range
     self.ang_range  : tuple          = ang_range
     self.source     : pygame.Vector2 = source if source else pygame.Vector2()
+    self.kwargs     : dict           = kwargs
 
   def update(self) -> None:
     if self.emitting and time.time() - self.last_emit >= self.emit_delay:
       self.last_emit = time.time()
-      
+
       vel = random.uniform(self.vel_range[0], self.vel_range[1])
       ang = random.uniform(self.ang_range[0], self.ang_range[1])
 
-      self.pool.create_particle(self.source.xy, vel, ang, self.force)
+      self.pool.create_particle(self.source.xy, vel, ang, self.force, **self.kwargs)
 
   def set_emit_source(self, x:int, y:int) -> None:
     self.source.update(x, y)
@@ -94,7 +99,7 @@ class ParticlePool(Element):
   def __init__(self, p_type:object, pool_size:int=0):
     super().__init__()
     self.pool           : list   = []
-    self.particle_index : int    = 0 
+    self.particle_index : int    = 0
     self.particle_type  : object = p_type
     for _ in range(pool_size):
       self.pool.append(p_type())
@@ -109,7 +114,7 @@ class ParticlePool(Element):
   @property
   def available(self) -> int:
     return len(self.pool) - self.particle_index
-  
+
   # only call when forcing particles to be available
   def get_next(self, force:bool=False) -> Particle:
     # available
@@ -117,7 +122,7 @@ class ParticlePool(Element):
       p = self.pool[self.particle_index]
       self.particle_index += 1
       return p
-  
+
     # none available but forcing one to be available
     elif self.available == 0 and force:
       sample_index = random.randint(0, len(self.pool) - 1)
@@ -125,7 +130,7 @@ class ParticlePool(Element):
       return self.pool[sample_index]
 
     return None
-    
+
   def modify_size(self, new_size:int) -> None:
     if new_size > len(self.pool):
       for _ in range(new_size - len(self.pool)):
@@ -154,7 +159,7 @@ class ParticlePool(Element):
     self.emitters.append(Emitter(self, emit_delay=emit_delay))
     return self.emitters[-1]
 
-  def create_particle(self, src:tuple, vel:float, ang:float, force:bool=False):
+  def create_particle(self, src:tuple, vel:float, ang:float, force:bool=False, **kwargs):
     p = self.get_next(force)
     if not p:
       return
@@ -162,12 +167,13 @@ class ParticlePool(Element):
     p.reset()
     p.set_pos(src[0], src[1])
     p.set_vel(vel * math.cos(ang), vel * math.sin(ang))
+    p.set_kwargs(**kwargs)
 
-  def burst(self, src:tuple, num:int, vel_range:tuple, ang_range:tuple, force:bool=False):
+  def burst(self, src:tuple, num:int, vel_range:tuple, ang_range:tuple, force:bool=False, **kwargs):
     for _ in range(num):
       vel = random.uniform(vel_range[0], vel_range[1])
       ang = random.uniform(ang_range[0], ang_range[1])
-      self.create_particle(src, vel, ang, force)
+      self.create_particle(src, vel, ang, force, **kwargs)
 
   def update(self) -> None:
     for emitter in self.emitters:
