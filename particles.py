@@ -1,7 +1,6 @@
 import pygame
 import time
 import random
-import math
 
 from typing import Generator
 
@@ -12,13 +11,11 @@ except:
 
 # base particle class, inherited by all other particles
 class Particle(Element):
-  def __init__(self, pos:pygame.Vector2=None,
-               vel:pygame.Vector2=None, life_time:float=0):
+  def __init__(self, pos:pygame.Vector2=None, life_time:float=0):
     super().__init__()
     self.dead : bool = False
 
     self.pos : pygame.Vector2 = pygame.Vector2() if not pos else pos
-    self.vel : pygame.Vector2 = pygame.Vector2() if not vel else vel
 
   # can overload this in inheritors
   def is_dead(self) -> bool:
@@ -28,20 +25,14 @@ class Particle(Element):
   def reset(self) -> bool:
     self.dead = False
 
-  def set_vel(self, x:float, y:float) -> None:
-    self.vel.update(x, y)
-
   def set_pos(self, x:float, y:float) -> None:
     self.pos.update(x, y)
 
   def set_kwargs(self, **kwargs) -> None:
-    ...
-
-  def move(self) -> None:
-    self.pos += self.vel * self.elements['Window'].dt
+    return NotImplementedError
 
   def update(self) -> None:
-    ...
+    return NotImplementedError
 
 # emits particles
 class Emitter(Element):
@@ -159,21 +150,14 @@ class ParticlePool(Element):
     self.emitters.append(Emitter(self, emit_delay=emit_delay))
     return self.emitters[-1]
 
-  def create_particle(self, src:tuple, vel:float, ang:float, force:bool=False, **kwargs):
+  def create_particle(self, src:tuple, force:bool=False, **kwargs):
     p = self.get_next(force)
     if not p:
       return
 
     p.reset()
     p.set_pos(src[0], src[1])
-    p.set_vel(vel * math.cos(ang), vel * math.sin(ang))
     p.set_kwargs(**kwargs)
-
-  def burst(self, src:tuple, num:int, vel_range:tuple, ang_range:tuple, force:bool=False, **kwargs):
-    for _ in range(num):
-      vel = random.uniform(vel_range[0], vel_range[1])
-      ang = random.uniform(ang_range[0], ang_range[1])
-      self.create_particle(src, vel, ang, force, **kwargs)
 
   def update(self) -> None:
     for emitter in self.emitters:
