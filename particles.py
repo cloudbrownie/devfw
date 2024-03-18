@@ -2,6 +2,7 @@ import pygame
 import time
 import random
 
+from enum import IntEnum
 from typing import Generator
 
 try:
@@ -9,9 +10,15 @@ try:
 except:
   from elems  import Element
 
+# used in the emitter class
+class PARAMETER_TYPES(IntEnum):
+  PASS = 1
+  RANDI = 2
+  RANDF = 3
+
 # base particle class, inherited by all other particles
 class Particle(Element):
-  def __init__(self, pos:pygame.Vector2=None, life_time:float=0):
+  def __init__(self, pos:pygame.Vector2=None):
     super().__init__()
     self.dead : bool = False
 
@@ -28,7 +35,7 @@ class Particle(Element):
   def set_pos(self, x:float, y:float) -> None:
     self.pos.update(x, y)
 
-  def set_kwargs(self, **kwargs) -> None:
+  def set_kwargs(self) -> None:
     return NotImplementedError
 
   def update(self) -> None:
@@ -40,39 +47,50 @@ class Emitter(Element):
       self,
       pool:'ParticlePool', # type: ignore
       source:pygame.Vector2=None,
-      vel_range:tuple=(0,0),
-      ang_range:tuple=(0,0),
       emit_delay:float=999999999,
       force:bool=False,
-      **kwargs
+      params:dict=None,
+      param_flags:dict=None
     ):
 
     super().__init__()
-    self.pool       : ParticlePool   = pool
-    self.force      : bool           = force
-    self.emitting   : bool           = False
-    self.emit_delay : float          = emit_delay
-    self.last_emit  : float          = 0
-    self.vel_range  : tuple          = vel_range
-    self.ang_range  : tuple          = ang_range
-    self.source     : pygame.Vector2 = source if source else pygame.Vector2()
-    self.kwargs     : dict           = kwargs
+    self.pool        : ParticlePool   = pool
+    self.force       : bool           = force
+    self.emitting    : bool           = False
+    self.emit_delay  : float          = emit_delay
+    self.last_emit   : float          = 0
+    self.source      : pygame.Vector2 = source if source else pygame.Vector2()
+    self.params      : dict           = params if params else {}
+    self.param_flags : dict           = param_flags if param_flags else {}
 
   def update(self) -> None:
     if self.emitting and time.time() - self.last_emit >= self.emit_delay:
       self.last_emit = time.time()
 
-      vel = random.uniform(self.vel_range[0], self.vel_range[1])
-      ang = random.uniform(self.ang_range[0], self.ang_range[1])
+      parameters = {}
+      for parameter in self.params:
+        if self.param_flags[parameter] == PARAMETER_TYPES.PASS:
+          parameters[parameter] = self.params[parameter]
+        elif self.param_flags[parameter] == PARAMETER_TYPES.RANDI:
+          parameters[parameter] = random.randint(*self.params[parameter])
+        elif self.param_flags[parameter] == PARAMETER_TYPES.RANDF:
+          parameters[parameter] = random.uniform(*self.params[parameter])
 
-      self.pool.create_particle(self.source.xy, vel, ang, self.force, **self.kwargs)
+      self.pool.create_particle(self.source.xy, force=self.force, **parameters)
 
   def set_emit_source(self, x:int, y:int) -> None:
     self.source.update(x, y)
 
-  def set_emit_params(self, vel_range:tuple, ang_range:tuple) -> None:
-    self.vel_range = vel_range
-    self.ang_range = ang_range
+  def set_emit_params(self, params:dict, flags:dict=None) -> None:
+    self.params = params
+
+    if flags == None:
+      flags = {}
+    for parameter in params:
+      if parameter not in flags:
+        flags[parameter] = Emitter.PARAMETER_TYPES.PASS
+
+    self.param_flags = flags
 
   def toggle_emit(self, boolean:bool=None) -> None:
     if not boolean:
@@ -152,7 +170,7 @@ class ParticlePool(Element):
 
   def create_particle(self, src:tuple, force:bool=False, **kwargs):
     p = self.get_next(force)
-    if not p:
+    if p == None:
       return
 
     p.reset()
