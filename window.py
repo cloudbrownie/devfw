@@ -4,13 +4,15 @@ import time
 try:
   from .elems import Singleton
   from .mgl   import MGL, RenderObject
+  from .utils import read_file
 except:
   from elems  import Singleton
   from mgl    import MGL, RenderObject
+  from utils  import read_file
 
 
 class Window(Singleton):
-  def __init__(self, width:int, height:int, caption:str='template', opengl=False, icon_path:str=None):
+  def __init__(self, width:int, height:int, caption:str='template', opengl=False, icon_path:str=None, vert_path:str=None, frag_path:str=None):
     super().__init__()
     pygame.init()
     pygame.display.set_caption(caption)
@@ -38,7 +40,10 @@ class Window(Singleton):
     self.render_obj : RenderObject = None
     if opengl:
       MGL()
-      self.render_obj = self.elements['MGL'].create_render_object_default()
+      if vert_path == None and frag_path == None:
+        self.render_obj = self.elements['MGL'].create_render_object_default()
+      else:
+        self.render_obj = self.elements['MGL'].create_render_object(frag_path=frag_path, vert_path=vert_path)
 
   def show_debug(self) -> None:
     t = time.time()
@@ -48,7 +53,10 @@ class Window(Singleton):
       self.lowest_last_update = t
     pygame.display.set_caption(f'{self.caption} | FPS: {fps}/{self.lowest}')
 
-  def update(self, uniforms:dict={}) -> None:
+  def update(self, uniforms:dict=None) -> None:
+    if uniforms == None:
+      uniforms = {}
+
     if self.render_obj:
       if self.render_obj.default and ('surf' not in uniforms):
         uniforms['surf'] = self.window
