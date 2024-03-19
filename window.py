@@ -43,7 +43,7 @@ class Window(Singleton):
       if vert_path == None and frag_path == None:
         self.render_obj = self.elements['MGL'].create_render_object_default()
       else:
-        self.render_obj = self.elements['MGL'].create_render_object(frag_path=frag_path, vert_path=vert_path)
+        self.render_obj = self.elements['MGL'].create_render_object(frag_path=frag_path, vert_path=vert_path, default=True)
 
   def show_debug(self) -> None:
     t = time.time()

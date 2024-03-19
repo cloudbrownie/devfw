@@ -49,7 +49,10 @@ class RenderObject(Element):
     self.vertex_array : moderngl.VertexArray = self.elements['MGL'].context.vertex_array(self.program, [(buffer, *vao_args)])
     self.buffer : list = []
 
-  def update(self, uniforms:dict={}) -> None:
+  def update(self, uniforms:dict=None) -> None:
+    if uniforms == None:
+      return
+
     texture_id = 0
     uniform_list = list(self.program)
     for uniform in uniforms:
@@ -62,7 +65,10 @@ class RenderObject(Element):
       else:
         self.program[uniform].value = uniforms[uniform]
 
-  def convert_surfaces(self, uniforms:dict={}) -> None:
+  def convert_surfaces(self, uniforms:dict=None) -> None:
+    if uniforms == None:
+      return
+
     for uniform, value in uniforms.items():
       if type(value) == pygame.Surface:
         texture = self.elements['MGL'].surf_to_tex(value)
@@ -70,7 +76,10 @@ class RenderObject(Element):
         self.buffer.append(texture)
     return uniforms
 
-  def render(self, dest=None, uniforms:dict={}) -> None:
+  def render(self, dest=None, uniforms:dict=None) -> None:
+    if uniforms == None:
+      uniforms = {}
+
     dest = dest if dest else self.elements['MGL'].context.screen
 
     dest.use()
@@ -100,10 +109,10 @@ class MGL(Singleton):
   def create_render_object_default(self) -> RenderObject:
     return RenderObject(self.default_frag, default=True)
 
-  def create_render_object(self, frag_path:str, vert_path:str=None, vao_args:list=['2f 2f', 'vert', 'texcoord'], buffer=None) -> RenderObject:
+  def create_render_object(self, frag_path:str, vert_path:str=None, vao_args:list=['2f 2f', 'vert', 'texcoord'], buffer=None, default:bool=False) -> RenderObject:
     frag_shader = read_file(frag_path)
-    vert_shader = read_file(vert_path) if vert_path else self.default_vert
-    return RenderObject(frag_shader, vert_shader=vert_shader, vao_args=vao_args, buffer=buffer)
+    vert_shader = read_file(vert_path) if vert_path != None else self.default_vert
+    return RenderObject(frag_shader, vert_shader=vert_shader, vao_args=vao_args, buffer=buffer, default=default)
 
   def surf_to_tex(self, surf:pygame.Surface) -> moderngl.Texture:
     texture = self.context.texture(surf.get_size(), 4)

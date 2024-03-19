@@ -10,10 +10,10 @@ DEFAULT : str = 'def'
 class Render(Singleton):
   GLOW_Z : int = 63
 
-  def __init__(self, groups:list=[DEFAULT]):
+  def __init__(self, groups:list=None):
     super().__init__()
 
-    self.groups : list = groups
+    self.groups : list = groups if groups != None else [DEFAULT]
     self.render_groups : dict = {}
     for group in self.groups:
       self.render_groups[group] = []
