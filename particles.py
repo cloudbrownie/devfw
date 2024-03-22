@@ -88,7 +88,7 @@ class Emitter(Element):
       flags = {}
     for parameter in params:
       if parameter not in flags:
-        flags[parameter] = Emitter.PARAMETER_TYPES.PASS
+        flags[parameter] = PARAMETER_TYPES.PASS
 
     self.param_flags = flags
 
@@ -181,12 +181,15 @@ class ParticlePool(Element):
     for emitter in self.emitters:
       emitter.update()
 
-    for i in range(self.particle_index):
+    i = 0
+    while i < self.particle_index:
       # otherwise, update particle
       self.pool[i].update()
 
       if self.pool[i].is_dead():
         self.pool[i].dead = True
 
-        self._swap_particles(i, self.particle_index - 1)
         self.particle_index -= 1
+        self._swap_particles(i, self.particle_index)
+
+      i += 1

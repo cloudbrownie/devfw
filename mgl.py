@@ -37,6 +37,12 @@ void main() {
 }
 '''
 
+class RenderTarget(Element):
+  def __init__(self, tex:moderngl.Texture, ctx:moderngl.Context):
+    super().__init__()
+    self.texture   : moderngl.Texture     = tex
+    self.frame_buf : moderngl.Framebuffer = ctx.framebuffer(color_attachments=[tex])
+
 class RenderObject(Element):
   def __init__(self, frag_shader:str, vert_shader:str=def_vert_shader, default:bool=False, vao_args:list=['2f 2f', 'vert', 'texcoord'], buffer=None):
     super().__init__()
@@ -76,7 +82,7 @@ class RenderObject(Element):
         self.buffer.append(texture)
     return uniforms
 
-  def render(self, dest=None, uniforms:dict=None) -> None:
+  def render(self, dest:moderngl.Framebuffer=None, uniforms:dict=None) -> None:
     if uniforms == None:
       uniforms = {}
 
@@ -103,13 +109,29 @@ class MGL(Singleton):
       1.0, -1.0, 1.0, 1.0   # bottomright
     ]))
 
+    self.redundant_buffer : moderngl.Buffer = self.context.buffer(data=array('f', [
+      -1.0,  1.0,  0.0,  1.0,
+      1.0,  1.0,  1.0,  1.0,
+      -1.0, -1.0,  0.0,  0.0,
+      1.0, -1.0,  1.0,  0.0
+    ]))
+
     self.default_vert : str = def_vert_shader
     self.default_frag : str = def_frag_shader
+
+  def create_render_target(self, tex:moderngl.Framebuffer=None) -> RenderTarget:
+    if tex == None:
+      tex = self.context.texture(self.elements['Window'].window.get_size(), 4)
+
+    return RenderTarget(tex, self.context)
 
   def create_render_object_default(self) -> RenderObject:
     return RenderObject(self.default_frag, default=True)
 
-  def create_render_object(self, frag_path:str, vert_path:str=None, vao_args:list=['2f 2f', 'vert', 'texcoord'], buffer=None, default:bool=False) -> RenderObject:
+  def create_render_object(self, frag_path:str, vert_path:str=None, vao_args:list=None, buffer=None, default:bool=False) -> RenderObject:
+    if vao_args == None:
+      vao_args = ['2f 2f', 'vert', 'texcoord']
+
     frag_shader = read_file(frag_path)
     vert_shader = read_file(vert_path) if vert_path != None else self.default_vert
     return RenderObject(frag_shader, vert_shader=vert_shader, vao_args=vao_args, buffer=buffer, default=default)
