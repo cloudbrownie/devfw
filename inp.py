@@ -1,6 +1,7 @@
 import pygame
 import sys
 import functools
+import time
 
 try:
   from .elems import Singleton
@@ -30,35 +31,41 @@ class KeyListener:
     self.keydown = False
     self.keyup   = False
     if self.pressed:
-      for func, _ in self.funcs[KeyListener.CONTINUOUS]:
-        func()
+      for i, (func, _, (delay, last_update)) in enumerate(self.funcs[KeyListener.CONTINUOUS]):
+        if time.time() - last_update >= delay:
+          self.funcs[KeyListener.CONTINUOUS][i][2][1] = time.time()
+          func()
 
   def trigger(self) -> None:
     self.pressed = True
     self.keydown = True
     self.keyup   = False
-    for func, _ in self.funcs[KeyListener.ONPRESS]:
+    for func, _, _ in self.funcs[KeyListener.ONPRESS]:
       func()
 
   def untrigger(self) -> None:
     self.pressed = False
     self.keydown = False
     self.keyup   = True
-    for func, _ in self.funcs[KeyListener.ONRELEASE]:
+    for func, _, _ in self.funcs[KeyListener.ONRELEASE]:
       func()
 
-  def bind(self, func:callable, when:int, tag:str=None) -> None:
+  def bind(self, func:callable, when:int, tag:str=None, delay:float=0.0) -> None:
     if not tag:
       if type(func) == functools.partial:
         tag = func.func.__name__
       else:
         tag = func.__name__
 
-    self.funcs[when].append((func, tag))
+    if when == KeyListener.CONTINUOUS:
+      data = [delay, 0]
+    else:
+      data = 0
+    self.funcs[when].append((func, tag, data))
 
   def unbind(self, tag:str) -> None:
     for timing in self.funcs:
-      for i, (_, func_tag) in enumerate(self.funcs[timing]):
+      for i, (_, func_tag, _) in enumerate(self.funcs[timing]):
         if func_tag == tag:
           self.funcs.pop(i)
 
@@ -145,9 +152,9 @@ class Input(Singleton):
   def mouse_pos(self) -> pygame.Vector2:
     return self.mouse.pos.copy()
 
-  def bind_key(self, key:int, func:callable, when:int=KeyListener.CONTINUOUS, mods:int=0) -> None:
+  def bind_key(self, key:int, func:callable, when:int=KeyListener.CONTINUOUS, mods:int=0, delay:float=0.0) -> None:
     listener = KeyListener()
-    listener.bind(func, when)
+    listener.bind(func, when, delay=delay)
     self.keyboard_listeners[key] = listener
 
   def update(self) -> None:
