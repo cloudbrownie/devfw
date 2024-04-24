@@ -15,7 +15,7 @@ class Tilemap(Singleton):
     self.chunks : dict = {}
     self.CHUNK_WIDTH : int = chunk_size
     self.TILE_SIZE : int = tile_size
-    self.layers : set = {}
+    self.layers : set = set()
 
   # returns chunk pos as x, y in chunk scale using world coords
   def get_chunk_pos(self, worldx:float, worldy:float) -> tuple:
@@ -127,7 +127,7 @@ class Tilemap(Singleton):
           continue
 
         # iterate through all tiles
-        for compressed_pos, tex_data in self.chunks[chunk_tag][layer]:
+        for compressed_pos, tex_data in self.chunks[chunk_tag][layer].items():
 
           # compute tile world pos
           grid_x, grid_y = self._uncompress_tile_pos(compressed_pos)
@@ -152,3 +152,17 @@ class Tilemap(Singleton):
 
     with open(path, 'w') as f:
       json.dump(map_data, f)
+
+  # overwrites current instance variables with loaded values
+  def load(self, path:str) -> None:
+    data = None
+    with open(path, 'r') as f:
+      data = json.load(f)
+
+    params = data['params']
+
+    self.TILE_SIZE   = params['tile_size']
+    self.CHUNK_WIDTH = params['chunk_width']
+
+    self.chunks = data['chunks']
+    self.layers = data['layers']
