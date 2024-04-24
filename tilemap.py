@@ -6,7 +6,7 @@ except:
   from elems  import Element
 
 import pygame
-import json
+import pprint
 
 class Tilemap(Singleton):
   def __init__(self, chunk_size:int=16, tile_size:int=16):
@@ -27,8 +27,12 @@ class Tilemap(Singleton):
     return f'{cx},{cy}'
 
   # return world grid position in tile scale
-  def get_grid_pos(self, worldx:float, worldy:float) -> tuple:
+  def get_world_grid_pos(self, worldx:float, worldy:float) -> tuple:
     return int(worldx / self.TILE_SIZE), int(worldy / self.TILE_SIZE)
+
+  def get_chunk_grid_pos(self, worldx:float, worldy:float) -> tuple:
+    world_grid_x, world_grid_y = self.get_world_grid_pos(worldx, worldy)
+    return world_grid_x % self.CHUNK_WIDTH, world_grid_y % self.CHUNK_WIDTH
 
   def _compress_tile_pos(self, grid_x:int, grid_y:int) -> str:
     return str(grid_y * self.TILE_SIZE + grid_x)
@@ -41,9 +45,8 @@ class Tilemap(Singleton):
   def add_tile(self, worldx:float, worldy:float, layer:str, tex_bitmask:int=255, variant:int=0, replace:bool=False) -> None:
     chunk_tag = self.get_chunk_tag(worldx, worldy)
 
-    grid_x, grid_y = self.get_grid_pos(worldx, worldy)
+    grid_x, grid_y = self.get_chunk_grid_pos(worldx, worldy)
     compressed_pos = self._compress_tile_pos(grid_x, grid_y)
-
     tex_data = tex_bitmask, variant
 
     if chunk_tag not in self.chunks:
@@ -71,7 +74,7 @@ class Tilemap(Singleton):
     if (chunk_tag not in self.chunks) or (layer not in self.chunks[chunk_tag]):
       return None
 
-    grid_x, grid_y = self.get_grid_pos(worldx, worldy)
+    grid_x, grid_y = self.get_chunk_grid_pos(worldx, worldy)
     compressed_pos = self._compress_tile_pos(grid_x, grid_y)
 
     # will remove the tile from the layer of chunk (works if tile doesn't exist), and returns value (defaults None)
@@ -95,7 +98,7 @@ class Tilemap(Singleton):
     if (chunk_tag not in self.chunks) or (layer not in self.chunks[chunk_tag]):
       return None
 
-    grid_x, grid_y = self.get_grid_pos(worldx, worldy)
+    grid_x, grid_y = self.get_chunk_grid_pos(worldx, worldy)
     compressed_pos = self._compress_tile_pos(grid_x, grid_y)
 
     return self.chunks[chunk_tag][layer].get(compressed_pos)
@@ -138,31 +141,60 @@ class Tilemap(Singleton):
 
     return tiles
 
-  def save(self, path:str) -> None:
+  def save(self, path:str, compress=True) -> None:
+
     params = {
       'tile_size':self.TILE_SIZE,
-      'chunk_width':self.CHUNK_WIDTH
+      'chunk_width':self.CHUNK_WIDTH,
+      'cmprsd':compress
     }
+
+    if compress:
+      chunks = {}
+      for chunk_tag in self.chunks:
+        chunks[chunk_tag] = {}
+        for layer in self.chunks[chunk_tag]:
+          chunks[chunk_tag][layer] = []
+          for compressed_pos, (bitmask, variant) in self.chunks[chunk_tag][layer].items():
+            tex_data = variant << 8 | bitmask
+            chunks[chunk_tag][layer].append(int(compressed_pos) << 16 | tex_data)
 
     map_data = {
       'params':params,
-      'chunks':self.chunks,
-      'layers':self.layers,
+      'chunks':chunks,
+      'layers':self.layers
     }
 
+    pretty_map_data = pprint.pformat(map_data, width=4096, indent=2)
+
     with open(path, 'w') as f:
-      json.dump(map_data, f)
+      f.write(pretty_map_data)
 
   # overwrites current instance variables with loaded values
   def load(self, path:str) -> None:
     data = None
     with open(path, 'r') as f:
-      data = json.load(f)
+      data = eval(f.read())
 
     params = data['params']
 
     self.TILE_SIZE   = params['tile_size']
     self.CHUNK_WIDTH = params['chunk_width']
 
-    self.chunks = data['chunks']
+    if params['cmprsd']:
+      chunks = {}
+      for chunk in data['chunks']:
+        chunks[chunk] = {}
+        for layer in data['chunks'][chunk]:
+          chunks[chunk][layer] = {}
+          for tile in data['chunks'][chunk][layer]:
+            bitmask = tile & 255
+            variant = tile >> 8 & 255
+            pos     = tile >> 16
+            chunks[chunk][layer][pos] = bitmask, variant
+      self.chunks = chunks
+
+    else:
+      self.chunks = data['chunks']
+
     self.layers = data['layers']
