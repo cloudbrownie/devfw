@@ -9,21 +9,25 @@ except:
 class Camera(Singleton):
   MIN_SIZE : tuple = 100, 100
 
-  def __init__(self, width:int, height:int, sx:int=0, sy:int=0):
+  def __init__(self, width:int, height:int, sx:int=None, sy:int=None, scoeff:float=1, sminstep:float=0.2, sthresh:float=0.25):
     super().__init__()
     self.width  : int = width
     self.height : int = height
 
     self.rect : pygame.Rect = pygame.Rect(0, 0, width, height)
 
+    if sx == None and sy == None:
+      sx = width / 2
+      sy = height / 2
+
     self.scroll_pos : pygame.Vector2 = pygame.Vector2(sx, sy)
     self.scroll_tgt : pygame.Vector2 = pygame.Vector2(sx, sy)
 
     self.rect.center = self.scroll_pos
 
-    self.scroll_coeff   : float = 1
-    self.scroll_minstep : float = 0.2
-    self.scroll_thresh  : float = 0.25
+    self.scroll_coeff   : float = scoeff
+    self.scroll_minstep : float = sminstep
+    self.scroll_thresh  : float = sthresh
 
     self.scroll_pause : bool = False
 
@@ -32,11 +36,12 @@ class Camera(Singleton):
     self.scroll_tgt.update(x=x, y=y)
 
   def move_scroll(self, x:int, y:int, immediate:bool=True) -> None:
-    self.scroll_tgt.x -= x
-    self.scroll_tgt.y -= y
+    self.scroll_tgt.x += x
+    self.scroll_tgt.y += y
     if immediate:
-      self.scroll_pos.x -= x
-      self.scroll_pos.y -= y
+      self.scroll_pos.x += x
+      self.scroll_pos.y += y
+      self.rect.center = self.scroll_pos
 
   def update_scroll(self, dt:float) -> None:
     diff = self.scroll_tgt - self.scroll_pos
