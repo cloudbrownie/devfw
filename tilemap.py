@@ -7,6 +7,7 @@ except:
 
 import pygame
 import pprint
+import bitarray
 
 class Tilemap(Singleton):
   def __init__(self, chunk_size:int=16, tile_size:int=16):
@@ -23,20 +24,20 @@ class Tilemap(Singleton):
 
   # returns chunk pos as x, y in chunk scale using world coords
   def get_chunk_pos(self, worldx:float, worldy:float) -> tuple:
-    return int(worldx / self.CHUNK_SIZE), int(worldy / self.CHUNK_SIZE)
+    return int(worldx // self.CHUNK_SIZE), int(worldy // self.CHUNK_SIZE)
 
   # returns the chunk tag using world coords
   def get_chunk_tag(self, worldx:float, worldy:float) -> str:
     cx, cy = self.get_chunk_pos(worldx, worldy)
     return f'{cx},{cy}'
-  
+
   def _unformat_chunk_tag(self, tag:str) -> tuple:
     x, y = tag.split(',')
     return int(x), int(y)
 
   # return world grid position in tile scale
   def get_world_grid_pos(self, worldx:float, worldy:float) -> tuple:
-    return int(worldx / self.TILE_SIZE), int(worldy / self.TILE_SIZE)
+    return int(worldx // self.TILE_SIZE), int(worldy // self.TILE_SIZE)
 
   def get_chunk_grid_pos(self, worldx:float, worldy:float) -> tuple:
     world_grid_x, world_grid_y = self.get_world_grid_pos(worldx, worldy)
@@ -113,7 +114,7 @@ class Tilemap(Singleton):
 
   # grabs all tile's world position (uncompressed) and texture data within given rect
   def get_tiles_in_rect(self, rect:pygame.Rect, layer:str, pad:bool=True) -> list:
-    
+
     visible_chunks = self.get_visible_chunks(rect, layer, pad)
 
     tiles = []
@@ -134,7 +135,7 @@ class Tilemap(Singleton):
         tiles.append(((tw_x, tw_y), tex_data))
 
     return tiles
-  
+
   def get_visible_chunks(self, rect:pygame.Rect, layer:str, pad:bool=True) -> list:
     x_start  = rect.x // self.CHUNK_SIZE
     y_start  = rect.y // self.CHUNK_SIZE
@@ -157,16 +158,16 @@ class Tilemap(Singleton):
         chunk_tag = f'{chunk_x},{chunk_y}'
         if (chunk_tag not in self.chunks) or (layer not in self.chunks[chunk_tag]):
           continue
-          
+
         chunks.append(chunk_tag)
-    
+
     return chunks
-  
+
   def get_chunk_as_bitgrid(self, chunk_tag:str, layer:str) -> list:
     if (chunk_tag not in self.chunks) or (layer not in self.chunks[chunk_tag]):
       return []
-    
-    grid = [[0 for _ in range(self.CHUNK_WIDTH)] for _ in range(self.CHUNK_WIDTH)]
+
+    grid = [bitarray.bitarray(self.CHUNK_WIDTH) for _ in range(self.CHUNK_WIDTH)]
 
     for i in range(self.CHUNK_WIDTH):
       for j in range(self.CHUNK_WIDTH):
@@ -175,6 +176,13 @@ class Tilemap(Singleton):
           grid[i][j] = 1
 
     return grid
+
+  # returns list of greedily meshed rects for the chunk
+  def greedy_mesh_chunk(self, chunk_tag:str, layer:str) -> list:
+    if (chunk_tag not in self.chunks) or (layer not in self.chunks[chunk_tag]):
+      return []
+
+    grid = self.get_chunk_as_bitgrid(chunk_tag, layer)
 
   def save(self, path:str, compress=True) -> None:
 
