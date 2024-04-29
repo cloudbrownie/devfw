@@ -18,9 +18,9 @@ class Window(Singleton):
     pygame.display.set_caption(caption)
     self.caption : str = caption
 
-    flags = pygame.OPENGL | pygame.DOUBLEBUF if opengl else 0
+    self.flags : int = pygame.OPENGL | pygame.DOUBLEBUF if opengl else 0
 
-    self.window : pygame.Surface = pygame.display.set_mode((width, height), flags)
+    self.window : pygame.Surface = pygame.display.set_mode((width, height), self.flags)
 
     if icon_path:
       pygame.display.set_icon(pygame.image.load(icon_path))
@@ -45,13 +45,20 @@ class Window(Singleton):
       else:
         self.render_obj = self.elements['MGL'].create_render_object(frag_path=frag_path, vert_path=vert_path, default=True)
 
-  def show_debug(self) -> None:
+  def resize(self, new_width:int, new_height:int) -> None:
+    old_size = self.window.get_size()
+
+    self.window = pygame.display.set_mode((new_width, new_height), self.flags)
+
+    return old_size
+
+  def show_debug(self, additional:str='') -> None:
     t = time.time()
     fps = round(1 / self.dt)
     if fps < self.lowest or t - self.lowest_last_update >= self.lowest_refresh_time:
       self.lowest = fps
       self.lowest_last_update = t
-    pygame.display.set_caption(f'{self.caption} | FPS: {fps}/{self.lowest}')
+    pygame.display.set_caption(f'{self.caption} | FPS: {fps}/{self.lowest} {additional}')
 
   def update(self, uniforms:dict=None) -> None:
     if uniforms == None:
