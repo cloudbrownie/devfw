@@ -30,16 +30,18 @@ class Sheets(Singleton):
       if raw_sheet.get_at((0, j)) == MARKER:
         row = []
         x = 0
-        for i in range(raw_sheet.get_width()):
+        for i in range(x, raw_sheet.get_width()):
           if raw_sheet.get_at((i, j)) == CONE:
-            w = (i - 1) - (x + 1)
+            w = i - (x + 1)
 
             h = 1
-            for k in range(raw_sheet.get_height()):
+            for k in range(j + 1, raw_sheet.get_height()):
               if raw_sheet.get_at((i, k)) == CONE:
-                h = (k - 1) - (j + 1)
+                h = (k - 1) - (j)
+                break
 
             tex = pygame.Surface((w, h))
+            tex.set_colorkey((0, 0, 0))
             tex.blit(raw_sheet, (0, 0), (x + 1, j + 1, w, h))
 
             row.append(tex)
@@ -61,6 +63,24 @@ class Sheets(Singleton):
       self.load_sheet(path, cfg)
 
 
+  def get_sheet_names(self) -> list:
+    return self.sheet_map.copy()
+  
+  def get_sheet_data(self, sheet_id:int) -> dict:
+    sheet_name = self.sheet_map[sheet_id]
+    data = {
+      'surfs':self.sheets[sheet_name]['dat'].copy(),
+      'cnfg':self.config.get(sheet_name, None)
+    }
+
+    return data
+  
+  def get_possible_tile_neighbors(self, tex:int) -> list:
+    sheet_name = self.sheet_map[tex]
+    config_data = self.config[sheet_name]
+
+    return config_data[tex]['neighbors']
+
   def get_tile_texture(self, tex:int, bitmask:int, variant:int) -> pygame.Surface:
     sheet_name = self.sheet_map[tex]
     sheet_data = self.sheets[sheet_name]
@@ -70,13 +90,13 @@ class Sheets(Singleton):
       if tex in self.config and bitmask in self.config[tex]['map']:
         mapped = self.config[tex]['map']
 
-        if variant > len(sheet_data[tex]['dat'][mapped]):
+        if variant > len(sheet_data['dat'][mapped]):
           return None
 
-        return sheet_data[tex]['dat'][mapped][variant]
+        return sheet_data['dat'][mapped][variant]
 
     # otherwise fine, 4 bit representation is direct index
-    return sheet_data[tex]['dat'][bitmask][variant]
+    return sheet_data['dat'][bitmask][variant]
 
   def get_texture(self, tex:int, row:int, col:int) -> pygame.Surface:
     sheet_name = self.sheet_map[tex]
@@ -104,7 +124,7 @@ class Sheets(Singleton):
         row_height = max(row_height, rect.h)
 
       width = max(width, row_width)
-      height += row_height
+      height += row_height + 1
       row_heights.append(row_height)
 
     # make single surface
@@ -119,9 +139,12 @@ class Sheets(Singleton):
         output.blit(sheet, (x, y), rects[j][i])
         x += rects[j][i].w
         output.set_at((x, y - 1), CONE)
-        output.set_at((x, y + rect.h), CONE)
+        output.set_at((x, y + rects[j][i].h), CONE)
         x += 1
 
-      y += row_heights[j]
+      y += row_heights[j] + 1
 
     pygame.image.save(output, name)
+
+    if gen_config_template:
+      config = []
