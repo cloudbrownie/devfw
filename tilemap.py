@@ -271,8 +271,6 @@ class Tilemap(Singleton):
       'data':chunk_data
     }
 
-    print(data)
-
     with gzip.open(path, 'wb') as f:
       f.write(zlib.compress(pickle.dumps(data)))
 

@@ -6,9 +6,9 @@ except:
   from elems  import Singleton
 
 DEFAULT : str = 'def'
+GLOW_Z : int = 63
 
 class Render(Singleton):
-  GLOW_Z : int = 63
 
   def __init__(self, groups:list=None):
     super().__init__()
@@ -49,7 +49,7 @@ class Render(Singleton):
           _, func, args, kwargs = data
           func(dests[group], *args, **kwargs)
         else:
-          if data[0] != Render.GLOW_Z:
+          if data[0] != GLOW_Z:
             dests[group].blit(data[1], data[2])
           else:
             dests[group].blit(data[1], data[2], special_flags=pygame.BLEND_RGBA_ADD)
