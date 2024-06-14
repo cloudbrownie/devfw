@@ -5,24 +5,38 @@ import zlib
 
 try:
   from .elems import Singleton
-  from .elems import Element
   from .utils import point2d
 except:
   from elems import Singleton
-  from elems import Element
   from utils import point2d
 
 class Chunk:
   'used for storing chunk data in tilemap\'s spatial hash structure'
-  def __init__(self, chunk_pos:point2d, chunk_width:int, chunk_size:int, tile_size:int):
+  def __init__(self, chunk_pos:point2d, chunk_width:int, tile_size:int):
     self.chunk_pos : point2d = chunk_pos
     self.chunk_width : int = chunk_width
-    self.chunk_size : int = chunk_size
+    self.chunk_size : int = chunk_width * tile_size
     self.tile_size : int = tile_size
     self.grid : list[list[int]] = [[0 for _ in range(chunk_width)] for _ in range(chunk_width)]
     self.count : int = 0
     self.collidables : list = []
     self.outdated : bool = False
+
+  def from_bitstring(self, bitstring:str, optimize:bool=True) -> None:
+    self.count = 0
+    self.collidables = []
+
+    row = 0
+    col = 0
+    for i in range(len(bitstring)):
+      if i % self.tile_size == 0 and i > 0:
+        row += 1
+        col = 0
+      self.grid[row][col] = int(bitstring[i])
+      col += 1
+
+    if optimize:
+      self.optimize()
 
   def add_tile(self, row:int, col:int) -> None:
     'sets the row, col to be collidable'
@@ -30,7 +44,7 @@ class Chunk:
       self.count += 1
       self.outdated = True
     self.grid[row][col] = 1
-  
+
   def del_tile(self, row:int, col:int) -> None:
     'set the row, col to not be collidable'
     if self.grid[row][col] != 0:
@@ -59,7 +73,7 @@ class Chunk:
       self.outdated = False
 
     return self.collidables
-  
+
   def optimize(self) -> None:
     'greedy meshes the collidables into larger blocks'
     processed = [[False]*self.chunk_width for _ in range(self.chunk_width)]
@@ -123,7 +137,7 @@ class Tilemap(Singleton):
   def get_chunk_tag(self, worldx:float, worldy:float) -> str:
     'returns the chunk tag using world coords'
     return self._format_chunk_tag(*self.get_chunk_pos(worldx, worldy))
-  
+
   def _format_chunk_tag(self, chunkx:int, chunky:int) -> str:
     'formats the chunkx and chunky into a chunk tag'
     return f'{chunkx},{chunky}'
@@ -141,7 +155,7 @@ class Tilemap(Singleton):
     'returns col, row of world coordinates in tile scale and modulo\'d by chunk width'
     world_grid_x, world_grid_y = self.get_world_grid_pos(worldx, worldy)
     return world_grid_x % self.CHUNK_WIDTH, world_grid_y % self.CHUNK_WIDTH
-  
+
   def add_tile(self, worldx:float, worldy:float) -> None:
     'sets this world tile position as a collidable tile'
     chunkx, chunky = self.get_chunk_pos(worldx, worldy)
@@ -151,7 +165,6 @@ class Tilemap(Singleton):
       self.chunks[chunk_tag] = Chunk(
         point2d(chunkx, chunky),
         self.CHUNK_WIDTH,
-        self.CHUNK_SIZE,
         self.TILE_SIZE
       )
 
@@ -166,7 +179,7 @@ class Tilemap(Singleton):
 
     if chunk_tag not in self.chunks:
       return
-    
+
     col, row = self.get_chunk_grid_pos(worldx, worldy)
     self.chunks[chunk_tag].del_tile(row, col)
 
@@ -183,7 +196,7 @@ class Tilemap(Singleton):
 
     if chunk_tag not in self.chunks:
       return None
-    
+
     col, row = self.get_chunk_grid_pos(worldx, worldy)
     # if not self.chunks[chunk_tag][row][col]:
 
@@ -214,7 +227,7 @@ class Tilemap(Singleton):
         chunks.append(chunk_tag)
 
     return chunks
-  
+
   def get_terrain(self, query:pygame.Rect, pad:bool=True) -> list[pygame.Rect]:
     'returns list of pygame.Rect\'s representing collidable terrain'
     tags = self.get_chunks_in_rect(query, pad)
@@ -224,9 +237,9 @@ class Tilemap(Singleton):
       terrain.extend(self.chunks[tag].get_collidables())
 
     return terrain
-  
+
   def save(self, path:str) -> None:
-    
+
     chunk_data = {}
 
     for chunk_pos in self.chunks:
@@ -243,7 +256,7 @@ class Tilemap(Singleton):
 
     data = {
       'width':self.CHUNK_WIDTH,
-      'tilesize':self.TILE_SIZE,
+      'size':self.TILE_SIZE,
       'data':chunk_data
     }
 
@@ -256,12 +269,16 @@ class Tilemap(Singleton):
     with gzip.open(path, 'rb') as f:
       data = pickle.loads(zlib.decompress(f.read()))
 
-      chunk_data = data['data']
+      chunk_data  = data['data']
+      chunk_width = data['width']
+      tile_size   = data['size']
 
       self.chunks.clear()
 
-      for chunk_pos in chunk_data:
+      for chunk_hash in chunk_data:
 
-        
+        chunk_pos = point2d(*self._unformat_chunk_tag(chunk_hash))
+        self.chunks[chunk_hash] = Chunk(chunk_pos, chunk_width, tile_size)
 
-        self.chunks[chunk_pos] = Chunk()
+        self.chunks[chunk_hash].from_bitstring(chunk_data[chunk_hash])
+
