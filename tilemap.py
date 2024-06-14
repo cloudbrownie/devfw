@@ -45,6 +45,10 @@ class Chunk:
       self.outdated = True
     self.grid[row][col] = 1
 
+  def check_tile(self, row:int, col:int) -> bool:
+    'returns whether a tile exists in this location'
+    return self.grid[row][col] == 1
+
   def del_tile(self, row:int, col:int) -> None:
     'set the row, col to not be collidable'
     if self.grid[row][col] != 0:
@@ -198,7 +202,14 @@ class Tilemap(Singleton):
       return None
 
     col, row = self.get_chunk_grid_pos(worldx, worldy)
-    # if not self.chunks[chunk_tag][row][col]:
+
+    if not self.chunks[chunk_tag].check_tile(row, col):
+      return None
+
+    rx = col * self.TILE_SIZE + chunkx * self.CHUNK_SIZE
+    ry = row * self.TILE_SIZE + chunky * self.CHUNK_SIZE
+
+    return pygame.Rect(rx, ry, self.TILE_SIZE, self.TILE_SIZE)
 
   def get_chunks_in_rect(self, query:pygame.Rect, pad:bool=True) -> list[str]:
     'returns the chunk tags of all chunks within query rect'
