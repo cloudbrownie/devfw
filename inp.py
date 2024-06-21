@@ -31,7 +31,11 @@ class KeyListener:
     self.keydown = False
     self.keyup   = False
     if self.pressed:
-      for i, (func, _, (delay, last_update)) in enumerate(self.funcs[KeyListener.CONTINUOUS]):
+      for i, (func, _, (delay, last_update, mods)) in enumerate(self.funcs[KeyListener.CONTINUOUS]):
+
+        if pygame.key.get_mods() & mods != mods:
+          continue
+
         if time.time() - last_update >= delay:
           self.funcs[KeyListener.CONTINUOUS][i][2][1] = time.time()
           func()
@@ -40,17 +44,21 @@ class KeyListener:
     self.pressed = True
     self.keydown = True
     self.keyup   = False
-    for func, _, _ in self.funcs[KeyListener.ONPRESS]:
+    for func, _, mods in self.funcs[KeyListener.ONPRESS]:
+      if pygame.key.get_mods() & mods != mods:
+        continue
       func()
 
   def untrigger(self) -> None:
     self.pressed = False
     self.keydown = False
     self.keyup   = True
-    for func, _, _ in self.funcs[KeyListener.ONRELEASE]:
+    for func, _, mods in self.funcs[KeyListener.ONRELEASE]:
+      if pygame.key.get_mods() & mods != mods:
+        continue
       func()
 
-  def bind(self, func:callable, when:int, tag:str=None, delay:float=0.0) -> None:
+  def bind(self, func:callable, when:int, tag:str=None, delay:float=0.0, mods:int=0) -> None:
     if not tag:
       if type(func) == functools.partial:
         tag = func.func.__name__
@@ -58,9 +66,9 @@ class KeyListener:
         tag = func.__name__
 
     if when == KeyListener.CONTINUOUS:
-      data = [delay, 0]
+      data = [delay, 0, mods]
     else:
-      data = 0
+      data = mods
     self.funcs[when].append((func, tag, data))
 
   def unbind(self, tag:str) -> None:
@@ -154,7 +162,7 @@ class Input(Singleton):
 
   def bind_key(self, key:int, func:callable, when:int=KeyListener.CONTINUOUS, mods:int=0, delay:float=0.0) -> None:
     listener = KeyListener()
-    listener.bind(func, when, delay=delay)
+    listener.bind(func, when, delay=delay, mods=mods)
     self.keyboard_listeners[key] = listener
 
   def update(self) -> None:
