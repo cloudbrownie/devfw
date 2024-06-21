@@ -15,26 +15,30 @@ except:
 
 class Chunk:
   'used for storing data in chunks for spatial hash'
-  def __init__(self, chunk_pos:point2d, chunk_width:int, tile_size:int):
-    self.chunk_pos : point2d = chunk_pos
+  def __init__(self, default:Any, chunk_pos:point2d, chunk_width:int, tile_size:int):
+    self.chunk_pos   : point2d = chunk_pos
     self.chunk_width : int = chunk_width
-    self.chunk_size : int = chunk_width * tile_size
-    self.tile_size : int = tile_size
-    self.grid : list[list[Any]] = [[None for _ in range(chunk_width)] for _ in range(chunk_width)]
-    self.count : int = 0
+    self.chunk_size  : int = chunk_width * tile_size
+    self.tile_size   : int = tile_size
+    self.default     : Any = default
+    self.grid        : list[list[Any]] = [[default for _ in range(chunk_width)] for _ in range(chunk_width)]
+    self.count       : int = 0
+    self.outdated    : bool = True
 
   def add_item(self, row:int, col:int, data:Any) -> None:
     'add item to chunk at <row>, <col>'
     if self.grid[row][col] == None:
       self.count += 1
     self.grid[row][col] = data
+    self.outdated = True
 
   def del_item(self, row:int, col:int) -> Any:
     'returns item in chunk at <row>, <col> and deletes it'
     if self.grid[row][col] != None:
       self.count -= 1
     item = self.grid[row][col]
-    self.grid[row][col] = None
+    self.grid[row][col] = self.default
+    self.outdated = True
     return item
 
   def get_item(self, row:int, col:int) -> Any:
@@ -60,10 +64,12 @@ class Chunk:
 
 class HashMap(Element):
   'generic spatial hash implementation'
-  def __init__(self, chunk_width:int=16, tile_size:int=16):
+  def __init__(self, chunk_type:Any, chunk_width:int=16, tile_size:int=16):
     super().__init__()
 
-    self.chunks : dict[str, Chunk] = {}
+    self.chunk_type  : Any = chunk_type
+
+    self.chunks      : dict[str, self.chunk_type] = {}
     self.CHUNK_WIDTH : int = chunk_width
     self.TILE_SIZE   : int = tile_size
 
@@ -98,22 +104,22 @@ class HashMap(Element):
     world_grid_x, world_grid_y = self.get_world_grid_pos(worldx, worldy)
     return world_grid_x % self.CHUNK_WIDTH, world_grid_y % self.CHUNK_WIDTH
 
-  def add_tile(self, worldx:float, worldy:float) -> None:
+  def add_tile(self, worldx:float, worldy:float, data:Any) -> None:
     'sets this world tile position as a collidable tile'
     chunkx, chunky = self.get_chunk_pos(worldx, worldy)
     chunk_tag = self._format_chunk_tag(chunkx, chunky)
 
     if chunk_tag not in self.chunks:
-      self.chunks[chunk_tag] = Chunk(
+      self.chunks[chunk_tag] = self.chunk_type(
         point2d(chunkx, chunky),
         self.CHUNK_WIDTH,
         self.TILE_SIZE
       )
 
     col, row = self.get_chunk_grid_pos(worldx, worldy)
-    self.chunks[chunk_tag].add_tile(row, col)
+    self.chunks[chunk_tag].add_item(row, col, data)
 
-  def remove_tile(self, worldx:float, worldy:float, del_empty:bool=True) -> None:
+  def del_tile(self, worldx:float, worldy:float, del_empty:bool=True) -> None:
     'removes this world tile position from being collidable, deletes the chunk if chunk then becomes empty'
     chunkx, chunky = self.get_chunk_pos(worldx, worldy)
     chunk_tag = self._format_chunk_tag(chunkx, chunky)
@@ -122,7 +128,7 @@ class HashMap(Element):
       return
 
     col, row = self.get_chunk_grid_pos(worldx, worldy)
-    self.chunks[chunk_tag].del_tile(row, col)
+    self.chunks[chunk_tag].del_item(row, col)
 
     if del_empty and self.chunks[chunk_tag].count == 0:
       del self.chunks[chunk_tag]
@@ -200,7 +206,7 @@ class HashMap(Element):
       for chunk_hash in chunk_data:
 
         chunk_pos = point2d(*self._unformat_chunk_tag(chunk_hash))
-        self.chunks[chunk_hash] = Chunk(chunk_pos, chunk_width, tile_size)
+        self.chunks[chunk_hash] = self.chunk_type(chunk_pos, chunk_width, tile_size)
 
         self.chunks[chunk_hash].reconstruct(chunk_data[chunk_hash])
 
