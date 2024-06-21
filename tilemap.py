@@ -3,17 +3,16 @@ import pygame
 from typing import Any
 
 try:
-  from .hashmap import Chunk, HashMap
+  from .spatialhash import Chunk, SpatialHashMap
   from .utils   import point2d
 except:
-  from hashmap import Chunk, HashMap
+  from spatialhash import Chunk, SpatialHashMap
   from utils   import point2d
 
 class TileChunk(Chunk):
   def __init__(self, chunk_pos:point2d, chunk_width:int, tile_size:int):
     super().__init__(0, chunk_pos=chunk_pos, chunk_width=chunk_width, tile_size=tile_size)
     self.collidables : list = []
-    self.outdated : bool = True
 
   def get_collidables(self) -> list:
     'returns list of collidable rects in the chunk'
@@ -104,10 +103,9 @@ class TileChunk(Chunk):
 
     self.optimize()
 
-class TileHashMap(HashMap):
+class TileSHMap(SpatialHashMap):
   def __init__(self, chunk_width:int=16, tile_size:int=16):
     super().__init__(TileChunk, chunk_width=chunk_width, tile_size=tile_size)
-    self.chunks : dict[str, TileChunk] = {}
 
   def add_tile(self, worldx: float, worldy: float) -> None:
     super().add_tile(worldx, worldy, 1)
