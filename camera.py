@@ -1,12 +1,12 @@
 import pygame
 
 try:
-  from .elems import Singleton
+  from .elems import Element
 except:
-  from elems  import Singleton
+  from elems  import Element
 
 
-class Camera(Singleton):
+class Camera(Element):
   MIN_SIZE : tuple = 100, 100
 
   def __init__(self, width:int, height:int, sx:int=None, sy:int=None, scoeff:float=1, sminstep:float=0.2, sthresh:float=0.25):
