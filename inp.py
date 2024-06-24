@@ -10,6 +10,13 @@ except:
   from elems  import Singleton
   from utils  import bind_func
 
+def _verify_key_modifiers(mods:int) -> bool:
+    active_mods = pygame.key.get_mods()
+    if active_mods & mods != mods:
+      return False
+    if active_mods != 0 and mods == 0:
+      return False
+    return True
 
 class KeyListener:
   ONPRESS = 1
@@ -33,7 +40,7 @@ class KeyListener:
     if self.pressed:
       for i, (func, _, (delay, last_update, mods)) in enumerate(self.funcs[KeyListener.CONTINUOUS]):
 
-        if pygame.key.get_mods() & mods != mods:
+        if not _verify_key_modifiers(mods):
           continue
 
         if time.time() - last_update >= delay:
@@ -45,7 +52,7 @@ class KeyListener:
     self.keydown = True
     self.keyup   = False
     for func, _, mods in self.funcs[KeyListener.ONPRESS]:
-      if pygame.key.get_mods() & mods != mods:
+      if not _verify_key_modifiers(mods):
         continue
       func()
 
@@ -54,9 +61,10 @@ class KeyListener:
     self.keydown = False
     self.keyup   = True
     for func, _, mods in self.funcs[KeyListener.ONRELEASE]:
-      if pygame.key.get_mods() & mods != mods:
+      if not _verify_key_modifiers(mods):
         continue
       func()
+
 
   def bind(self, func:callable, when:int, tag:str=None, delay:float=0.0, mods:int=0) -> None:
     if not tag:
@@ -161,7 +169,7 @@ class Input(Singleton):
     return self.mouse.pos.copy()
 
   def bind_key(self, key:int, func:callable, when:int=KeyListener.CONTINUOUS, mods:int=0, delay:float=0.0) -> None:
-    listener = KeyListener()
+    listener = self.keyboard_listeners.get(key, KeyListener())
     listener.bind(func, when, delay=delay, mods=mods)
     self.keyboard_listeners[key] = listener
 
