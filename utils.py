@@ -1,5 +1,5 @@
 from functools import partial
-from typing import NamedTuple
+from dataclasses import dataclass
 
 def read_file(path:str) -> str:
   f = open(path, 'r')
@@ -10,10 +10,34 @@ def read_file(path:str) -> str:
 def bind_func(func:callable, *args, **kwargs) -> callable:
   return partial(func, *args, **kwargs)
 
-class size2d(NamedTuple):
+@dataclass
+class size2d:
   w: float
   h: float
 
-class point2d(NamedTuple):
+  def __str__(self) -> str:
+    return f'({self.w}, {self.h})'
+  
+@dataclass
+class point2d:
   x: float
   y: float
+
+  def __add__(self, o) -> 'point2d':
+    return point2d(self.x + o.x, self.y + o.y)
+    
+  def __sub__(self, o) -> 'point2d':
+    return point2d(self.x - o.x , self.y - o.y)
+
+  def __str__(self) -> str:
+    return f'({self.x}, {self.y})'
+    
+if __name__ == '__main__':
+  a = point2d(3, 4)
+  b = point2d(1, 1)
+  c = a + b
+  d = a - b
+
+  # a.x = 5
+
+  print(a, b, c, d)
