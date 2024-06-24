@@ -19,8 +19,10 @@ class TexChunk(Chunk):
 
     if self.outdated:
       self.textures = []    
-      for row in range(len(self.chunk_width)):
-        for col in range(len(self.chunk_width)):
+      for row in range(self.chunk_width):
+        for col in range(self.chunk_width):
+          if self.grid[row][col] == None:
+            continue
           self.textures.append((point2d(col * self.tile_size + self.chunk_pos.x * self.chunk_size, row * self.tile_size + self.chunk_pos.y * self.chunk_size), self.grid[row][col]))
 
     return self.textures    

@@ -47,7 +47,7 @@ class Chunk:
 
   def check_item(self, row:int, col:int) -> bool:
     'returns boolean of item status at <row>, <col>'
-    return self.get_item(row, col) != None
+    return self.get_item(row, col) != self.default
 
   def swap_item(self, row:int, col:int, data:Any) -> Any:
     'returns item in chunk at <row>, <col> and replaces with new item'
@@ -143,10 +143,21 @@ class SpatialHashMap(Element):
 
     col, row = self.get_chunk_grid_pos(worldx, worldy)
 
-    if not self.chunks[chunk_tag].check_tile(row, col):
+    if not self.chunks[chunk_tag].check_item(row, col):
       return None
 
-    self.chunks[chunk_tag].get_item(row, col)
+    return self.chunks[chunk_tag].get_item(row, col)
+  
+  def check_tile(self, worldx:float, worldy:float) -> bool:
+    'returns boolean if tile exists at worldx, worldy'
+    chunkx, chunky = self.get_chunk_pos(worldx, worldy)
+    chunk_tag = self._format_chunk_tag(chunkx, chunky)
+
+    if chunk_tag not in self.chunks:
+      return False
+    
+    col, row = self.get_chunk_grid_pos(worldx, worldy)
+    return self.chunks[chunk_tag].check_item(row, col)
 
   def get_chunks_in_rect(self, query:pygame.Rect, pad:bool=True) -> list[str]:
     'returns the chunk tags of all chunks within query rect'
