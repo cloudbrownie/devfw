@@ -23,6 +23,9 @@ class point2d:
   x: float
   y: float
 
+  def copy(self) -> 'point2d':
+    return point2d(self.x, self.y)
+
   def __add__(self, o) -> 'point2d':
     return point2d(self.x + o.x, self.y + o.y)
     
@@ -37,7 +40,5 @@ if __name__ == '__main__':
   b = point2d(1, 1)
   c = a + b
   d = a - b
-
-  # a.x = 5
 
   print(a, b, c, d)
