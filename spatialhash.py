@@ -13,9 +13,10 @@ except:
   from utils import point2d
 
 
-class Chunk:
+class Chunk(Element):
   'used for storing data in chunks for spatial hash'
   def __init__(self, default:Any, chunk_pos:point2d, chunk_width:int, tile_size:int):
+    super().__init__()
     self.chunk_pos   : point2d = chunk_pos
     self.chunk_width : int = chunk_width
     self.chunk_size  : int = chunk_width * tile_size
