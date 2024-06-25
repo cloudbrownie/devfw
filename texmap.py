@@ -26,6 +26,14 @@ class TexChunk(Chunk):
           self.textures.append((point2d(col * self.tile_size + self.chunk_pos.x * self.chunk_size, row * self.tile_size + self.chunk_pos.y * self.chunk_size), self.grid[row][col]))
 
     return self.textures    
+  
+  def update_tile_texture(self, row:int, col:int, new_bitmask:int=-1, new_variant:int=-1) -> Any:
+    sheet_id, old_row, old_col = self.get_item(row, col)
+
+    new_row = new_bitmask if new_bitmask != -1 else old_row
+    new_col = new_variant if new_variant != -1 else old_col
+
+    return self.swap_item(row, col, (sheet_id, new_row, new_col))
 
 class TexSHMap(SpatialHashMap):
   def __init__(self, chunk_width:int=16, tile_size:int=16):
@@ -43,3 +51,10 @@ class TexSHMap(SpatialHashMap):
       textures.extend(self.chunks[tag].get_textures())
 
     return textures
+  
+  def update_tile_texture(self, worldx:float, worldy:float, new_bitmask:int=-1, new_variant:int=-1) -> Any:
+    chunk_tag = self.get_chunk_tag(worldx, worldy)
+    col, row = self.get_chunk_grid_pos(worldx, worldy)
+    return self.chunks[chunk_tag].update_tile_texture(row, col, new_bitmask, new_variant)
+  
+  
