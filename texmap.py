@@ -4,10 +4,12 @@ from typing import Any
 
 try:
   from .spatialhash import Chunk, SpatialHashMap
-  from .utils   import point2d
+  from .elems       import Element
+  from .utils       import point2d
 except:
-  from scripts.devfw.spatialhash import Chunk, SpatialHashMap
-  from utils   import point2d
+  from scripts.devfw.spatialhash  import Chunk, SpatialHashMap
+  from elems                      import Element
+  from utils                      import point2d
 
 class TexChunk(Chunk):
   def __init__(self, chunk_pos:point2d, chunk_width:int, tile_size:int):
@@ -72,4 +74,53 @@ class TexSHMap(SpatialHashMap):
     col, row = self.get_chunk_grid_pos(worldx, worldy)
     return self.chunks[chunk_tag].update_tile_texture(row, col, new_bitmask, new_variant)
   
+class TextureMap(Element):
+  def __init__(self, chunk_width:int=16, tile_size:int=16):
+    super().__init__()
+
+    self._current_editing_layer : int = 1
+
+    self._texture_layers     : list                = ['-1', '0', '1']
+    self._texture_layer_maps : dict[str, TexSHMap] = {}
+
+    for layer in self._texture_layers:
+      self._texture_layer_maps[layer] = TexSHMap(chunk_width, tile_size)
+
+  @property
+  def layer(self) -> str:
+    if self._current_editing_layer == 0:
+      return 'background'
+    if self._current_editing_layer == 1:
+      return 'middleground'
+    return 'foreground'
   
+  @property
+  def editing_layer(self) -> str:
+    return self._texture_layers[self._current_editing_layer]
+
+  def increment_editing_layer(self) -> None:
+    if self._current_editing_layer < 2:
+      self._current_editing_layer += 1
+
+  def decrement_editing_layer(self) -> None:
+    if self._current_editing_layer > 0:
+      self._current_editing_layer -= 1
+
+  def add_tile(self, worldx:float, worldy:float, sheet_id:int, tex_row:int, tex_col:int) -> None:
+    self._texture_layer_maps[self.editing_layer].add_tile(worldx, worldy, sheet_id, tex_row, tex_col)
+
+  def del_tile(self, worldx:float, worldy:float) -> Any:
+    return self._texture_layer_maps[self.editing_layer].del_tile(worldx, worldy)
+
+  def check_tile(self, worldx:float, worldy:float) -> bool:
+    return self._texture_layer_maps[self.editing_layer].check_tile(worldx, worldy)
+
+  def update_tile_texture(self, worldx:float, worldy:float, bitmask:int, variant:int) -> Any:
+    return self._texture_layer_maps[self.editing_layer].update_tile_texture(worldx, worldy, bitmask, variant)
+
+  def get_map(self, query:pygame.Rect) -> list[point2d, pygame.Surface]:
+    textures = []
+    for layer in self._texture_layers:
+      textures.extend(self._texture_layer_maps[layer].get_terrain(query))
+
+    return textures
