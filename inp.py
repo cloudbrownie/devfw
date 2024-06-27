@@ -11,14 +11,11 @@ except:
   from utils  import bind_func
 
 def _verify_key_modifiers(mods:int) -> bool:
-    active_mods = pygame.key.get_mods()
-    if active_mods & mods != mods:
-      return False
-    if active_mods != 0 and mods == 0:
-      return False
-    return True
+    'determines if the pressed modifiers match the query'
+    return pygame.key.get_mods() == mods
 
 class KeyListener:
+  'used the input singleton to listen to keys and trigger functions'
   ONPRESS = 1
   CONTINUOUS = 2
   ONRELEASE = 3
@@ -35,9 +32,11 @@ class KeyListener:
     }
 
   def update(self) -> None:
+    'called every frame'
     self.keydown = False
     self.keyup   = False
     if self.pressed:
+      # activate all functions bound to continuous mode
       for i, (func, _, (delay, last_update, mods)) in enumerate(self.funcs[KeyListener.CONTINUOUS]):
 
         if not _verify_key_modifiers(mods):
@@ -48,6 +47,7 @@ class KeyListener:
           func()
 
   def trigger(self) -> None:
+    'calls the functions bound to onpress'
     self.pressed = True
     self.keydown = True
     self.keyup   = False
@@ -57,6 +57,7 @@ class KeyListener:
       func()
 
   def untrigger(self) -> None:
+    'calls the functions bound to unpress'
     self.pressed = False
     self.keydown = False
     self.keyup   = True
@@ -65,9 +66,10 @@ class KeyListener:
         continue
       func()
 
-
   def bind(self, func:callable, when:int, tag:str=None, delay:float=0.0, mods:int=0) -> None:
+    'binds a function to this listener and sets conditions for calling them'
     if not tag:
+      # if no custom tag, make function tag the function's name
       if type(func) == functools.partial:
         tag = func.func.__name__
       else:
@@ -80,12 +82,14 @@ class KeyListener:
     self.funcs[when].append((func, tag, data))
 
   def unbind(self, tag:str) -> None:
+    'unbinds a function from this listener'
     for timing in self.funcs:
       for i, (_, func_tag, _) in enumerate(self.funcs[timing]):
         if func_tag == tag:
           self.funcs.pop(i)
 
   def reset(self) -> None:
+    'clears all bound functions from this listener'
     for timing in self.funcs:
       self.funcs[timing].clear()
 
@@ -93,6 +97,8 @@ class KeyListener:
     return f'Bool: {self.pressed} | Just Pressed: {self.keydown} | Just Released: {self.keyup}'
 
 class MouseListener:
+  'representation of the mouse for listening to mouse inputs'
+
   def __init__(self):
     self.pos : pygame.Vector2 = pygame.Vector2(0, 0)
     self.vel : pygame.Vector2 = pygame.Vector2(0, 0)
@@ -106,9 +112,11 @@ class MouseListener:
 
   @property
   def xy(self) -> tuple:
+    'x, y position of the mouse'
     return self.pos.xy
 
   def click(self, button:int) -> None:
+    'called to trigger the appropriate mouse button'
     match (button):
       case 1: # left click
         self.m1.trigger()
@@ -118,6 +126,7 @@ class MouseListener:
         self.m3.trigger()
 
   def unclick(self, button:int) -> None:
+    'called to untrigger the appropriate mouse button'
     match (button):
       case 1: # left click
         self.m1.untrigger()
@@ -127,6 +136,7 @@ class MouseListener:
         self.m3.untrigger()
 
   def update(self) -> None:
+    'called every frame '
     if self.wheel_func and self.wheel != pygame.Vector2():
       self.wheel_func(*self.wheel.xy)
 
@@ -143,12 +153,15 @@ class MouseListener:
     self.m3.update()
 
   def bind_wheel(self, func:callable) -> None:
+    'binds a function to the mouse wheel'
     self.wheel_func = func
 
   def __str__(self) -> str:
     return f'Left Click:   {str(self.m1)}\nRight Click:  {str(self.m2)}\nMiddle Click: {str(self.m3)}'
 
 class Input(Singleton):
+  'singleton that controls all of the input handling for any game project'
+
   def __init__(self, app_name:str, custom_cursor:callable=None):
     super().__init__()
 
@@ -166,20 +179,24 @@ class Input(Singleton):
 
   @property
   def mouse_pos(self) -> pygame.Vector2:
+    'returns the mouse position as a vector2d'
     return self.mouse.pos.copy()
 
   def bind_key(self, key:int, func:callable, when:int=KeyListener.CONTINUOUS, mods:int=0, delay:float=0.0) -> None:
+    'binds a function to a specific key to be triggered based on \'when\' and given modifiers \'mods\''
     listener = self.keyboard_listeners.get(key, KeyListener())
     listener.bind(func, when, delay=delay, mods=mods)
     self.keyboard_listeners[key] = listener
 
   def update(self) -> None:
+    'must be called every frame. clears pygame input buffer and triggers keybinds accordingly'
 
     if self.custom_cursor:
       self.elements['Render'].drawf(self.custom_cursor_func, z=1)
 
     self.mouse.update()
 
+    # iterate over event buffer to obtain input events, may change later for event buffer stuff
     for event in pygame.event.get():
       if event.type == pygame.QUIT:
         self.elements[self.app_name].running = False

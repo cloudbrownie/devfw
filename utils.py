@@ -12,6 +12,7 @@ def bind_func(func:callable, *args, **kwargs) -> callable:
 
 @dataclass
 class size2d:
+  'simple size dataclass'
   w: float
   h: float
 
@@ -20,6 +21,7 @@ class size2d:
   
 @dataclass
 class point2d:
+  'simple point dataclass'
   x: float
   y: float
 

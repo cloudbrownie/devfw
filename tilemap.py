@@ -10,6 +10,8 @@ except:
   from utils   import point2d
 
 class TileChunk(Chunk):
+  'chunk element used for storing collidable tile hitboxes'
+
   def __init__(self, chunk_pos:point2d, chunk_width:int, tile_size:int):
     super().__init__(0, chunk_pos=chunk_pos, chunk_width=chunk_width, tile_size=tile_size)
     self.collidables : list = []
@@ -104,19 +106,23 @@ class TileChunk(Chunk):
     self.optimize()
 
 class TileSHMap(SpatialHashMap):
+  'spatial hash structure for storing collision chunks'
+
   def __init__(self, chunk_width:int=16, tile_size:int=16):
     super().__init__(TileChunk, chunk_width=chunk_width, tile_size=tile_size)
 
   def add_tile(self, worldx: float, worldy: float) -> None:
+    'adds a collision hitbox to the world at worldx, worldy'
     super().add_tile(worldx, worldy, 1)
     self.chunks[self.get_chunk_tag(worldx, worldy)].optimize()
 
   def del_tile(self, worldx:float, worldy:float, del_empty:bool=True) -> None:
+    'deletes a collision hitbox from the world at worldx, worldy'
     super().del_tile(worldx, worldy, del_empty=del_empty)
     self.chunks[self.get_chunk_tag(worldx, worldy)].optimize()
 
   def get_terrain(self, query:pygame.Rect, pad:bool=True) -> list[pygame.Rect]:
-    'returns list of pygame.Rect\'s representing collidable terrain'
+    'returns list of pygame.Rects representing collidable terrain in the query region'
     tags = self.get_chunks_in_rect(query, pad)
 
     terrain = []

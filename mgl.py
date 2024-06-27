@@ -38,12 +38,16 @@ void main() {
 '''
 
 class RenderTarget(Element):
+  'a render target for the mgl rendering system'
+
   def __init__(self, tex:moderngl.Texture, ctx:moderngl.Context):
     super().__init__()
     self.texture   : moderngl.Texture     = tex
     self.frame_buf : moderngl.Framebuffer = ctx.framebuffer(color_attachments=[tex])
 
 class RenderObject(Element):
+  'shader program for rendering using specified vertex and fragment shaders'
+
   def __init__(self, frag_shader:str, vert_shader:str=def_vert_shader, default:bool=False, vao_args:list=['2f 2f', 'vert', 'texcoord'], buffer=None):
     super().__init__()
     self.default = default
@@ -56,11 +60,13 @@ class RenderObject(Element):
     self.buffer : list = []
 
   def update(self, uniforms:dict=None) -> None:
+    'called to pipe vlaues into the shader program for rendering'
     if uniforms == None:
       return
 
     texture_id = 0
     uniform_list = list(self.program)
+    # iterate over all uniforms and convert surfaces to textures
     for uniform in uniforms:
       if uniform not in uniform_list:
         continue
@@ -72,6 +78,7 @@ class RenderObject(Element):
         self.program[uniform].value = uniforms[uniform]
 
   def convert_surfaces(self, uniforms:dict=None) -> None:
+    'converts uniform values into shader program accepted values'
     if uniforms == None:
       return
 
@@ -83,6 +90,7 @@ class RenderObject(Element):
     return uniforms
 
   def render(self, dest:moderngl.Framebuffer=None, uniforms:dict=None) -> None:
+    'uses the shader program to render to the render target'
     if uniforms == None:
       uniforms = {}
 
@@ -98,6 +106,8 @@ class RenderObject(Element):
     self.buffer = []
 
 class MGL(Singleton):
+  'rendering singleton for rendering using moderngl for custom shader effects'
+
   def __init__(self):
     super().__init__()
 
@@ -120,15 +130,18 @@ class MGL(Singleton):
     self.default_frag : str = def_frag_shader
 
   def create_render_target(self, tex:moderngl.Framebuffer=None) -> RenderTarget:
+    'returns a render target for the rendering system'
     if tex == None:
       tex = self.context.texture(self.elements['Window'].window.get_size(), 4)
 
     return RenderTarget(tex, self.context)
 
   def create_render_object_default(self) -> RenderObject:
+    'returns a default shader program for rendering'
     return RenderObject(self.default_frag, default=True)
 
   def create_render_object(self, frag_path:str, vert_path:str=None, vao_args:list=None, buffer=None, default:bool=False) -> RenderObject:
+    'returns a shader program for rendering with a custom vertex and fragment shader'
     if vao_args == None:
       vao_args = ['2f 2f', 'vert', 'texcoord']
 
@@ -137,6 +150,7 @@ class MGL(Singleton):
     return RenderObject(frag_shader, vert_shader=vert_shader, vao_args=vao_args, buffer=buffer, default=default)
 
   def surf_to_tex(self, surf:pygame.Surface) -> moderngl.Texture:
+    'returns an mgl texture from a surface'
     texture = self.context.texture(surf.get_size(), 4)
     texture.filter = (moderngl.NEAREST, moderngl.NEAREST)
     texture.swizzle = 'BGRA'

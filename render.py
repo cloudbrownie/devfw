@@ -9,6 +9,7 @@ DEFAULT : str = 'def'
 GLOW_Z : int = 63
 
 class Render(Singleton):
+  'render singleton that is orders rendering'
 
   def __init__(self, groups:list=None):
     super().__init__()
@@ -20,15 +21,18 @@ class Render(Singleton):
 
   # flushes out everything in the render pipe
   def flush(self) -> None:
+    'flushes all render calls out of the render queue'
     for group in self.groups:
       self.render_groups[group] = []
 
   # takes a surface and adds it to the rendering queue
   def draw(self, surf:pygame.Surface, pos:tuple, z:int=0, group:str=DEFAULT) -> None:
+    'queues a simple blit call for surface rendering'
     self.render_groups[group].append((z, surf, pos))
 
   # takes a render func with its args and kwargs and adds it to the rendering queue
   def drawf(self, func:callable, *args, **kwargs) -> None:
+    'queues a function reference draw'
     z = kwargs['z'] if 'z' in kwargs else 0
     group = kwargs['group'] if 'group' in kwargs else DEFAULT
     if 'z' in kwargs: del kwargs['z']
@@ -38,6 +42,7 @@ class Render(Singleton):
 
   # renders to the destination surfaces, does it in place
   def render(self, dests:dict) -> None:
+    'performs all queued render calls and flushes the render queue'
     for group in dests:
       if group not in self.render_groups:
         continue

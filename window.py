@@ -12,6 +12,8 @@ except:
 
 
 class Window(Singleton):
+  'window singleton of the application'
+
   def __init__(self, width:int, height:int, caption:str='template', opengl=False, icon_path:str=None, vert_path:str=None, frag_path:str=None):
     super().__init__()
     pygame.init()
@@ -38,6 +40,8 @@ class Window(Singleton):
     self.bg_color : tuple = 30, 35, 40
 
     self.render_obj : RenderObject = None
+
+    # if mgl is toggled, have rendering go through the mgl pipeline
     if opengl:
       MGL()
       if vert_path == None and frag_path == None:
@@ -46,6 +50,7 @@ class Window(Singleton):
         self.render_obj = self.elements['MGL'].create_render_object(frag_path=frag_path, vert_path=vert_path, default=True)
 
   def resize(self, new_width:int, new_height:int) -> None:
+    'resize the application window'
     old_size = self.window.get_size()
 
     self.window = pygame.display.set_mode((new_width, new_height), self.flags)
@@ -53,6 +58,7 @@ class Window(Singleton):
     return old_size
 
   def show_debug(self, additional:str='') -> None:
+    'adds framerate information to the application title'
     t = time.time()
     fps = round(1 / self.dt)
     if fps < self.lowest or t - self.lowest_last_update >= self.lowest_refresh_time:
@@ -61,6 +67,7 @@ class Window(Singleton):
     pygame.display.set_caption(f'{self.caption} | FPS: {fps}/{self.lowest} {additional}')
 
   def update(self, uniforms:dict=None) -> None:
+    'called every frame to update the application and renders to the application window'
     if uniforms == None:
       uniforms = {}
 

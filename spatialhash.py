@@ -15,6 +15,7 @@ except:
 
 class Chunk(Element):
   'used for storing data in chunks for spatial hash'
+
   def __init__(self, default:Any, chunk_pos:point2d, chunk_width:int, tile_size:int):
     super().__init__()
     self.chunk_pos   : point2d = chunk_pos
@@ -65,6 +66,7 @@ class Chunk(Element):
 
 class SpatialHashMap(Element):
   'generic spatial hash implementation'
+
   def __init__(self, chunk_type:Any=Chunk, chunk_width:int=16, tile_size:int=16):
     super().__init__()
 
@@ -106,7 +108,7 @@ class SpatialHashMap(Element):
     return world_grid_x % self.CHUNK_WIDTH, world_grid_y % self.CHUNK_WIDTH
 
   def add_tile(self, worldx:float, worldy:float, data:Any) -> None:
-    'sets this world tile position as a collidable tile'
+    'add tile data to this world tile position'
     chunkx, chunky = self.get_chunk_pos(worldx, worldy)
     chunk_tag = self._format_chunk_tag(chunkx, chunky)
 
@@ -121,7 +123,7 @@ class SpatialHashMap(Element):
     self.chunks[chunk_tag].add_item(row, col, data)
 
   def del_tile(self, worldx:float, worldy:float, del_empty:bool=True) -> None:
-    'removes this world tile position from being collidable, deletes the chunk if chunk then becomes empty'
+    'removes data from this world tile position, deletes the chunk if chunk then becomes empty'
     chunkx, chunky = self.get_chunk_pos(worldx, worldy)
     chunk_tag = self._format_chunk_tag(chunkx, chunky)
 
@@ -189,6 +191,7 @@ class SpatialHashMap(Element):
     return chunks
 
   def save(self, path:str) -> None:
+    'base save method for the spatial hash tree to a json'
 
     chunk_data = {}
 
@@ -206,6 +209,8 @@ class SpatialHashMap(Element):
 
 
   def load(self, path:str) -> None:
+    'base load method for the spatial hash tree to a json'
+
     with gzip.open(path, 'rb') as f:
       data = pickle.loads(zlib.decompress(f.read()))
 
