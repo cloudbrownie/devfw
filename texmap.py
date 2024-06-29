@@ -1,4 +1,7 @@
 import pygame
+import pickle
+import gzip
+import zlib
 
 from typing import Any
 
@@ -53,6 +56,9 @@ class TexChunk(Chunk):
     new_col = new_variant if new_variant != -1 else old_col
 
     return self.swap_item(row, col, (sheet_id, new_row, new_col))
+  
+  def reconstruct(self, data:Any) -> None:
+    ...
 
 class TexSHMap(SpatialHashMap):
   'spatial hash structure for storing texture chunks'
@@ -83,6 +89,12 @@ class TexSHMap(SpatialHashMap):
     col, row = self.get_chunk_grid_pos(worldx, worldy)
     return self.chunks[chunk_tag].update_tile_texture(row, col, new_bitmask, new_variant)
   
+  def reconstruct(self, data:Any) -> None:
+    
+    for chunk_tag in data:
+      
+      self.chunks[chunk_tag].reconstruct(data[chunk_tag])
+
 class TextureMap(Element):
   'map of multiple texture spatial hash structures for texture layering. contains a background, middleground, and foreground layer.'
 
@@ -142,5 +154,22 @@ class TextureMap(Element):
     textures = []
     for layer in self._texture_layers:
       textures.extend(self._texture_layer_maps[layer].get_terrain(query))
-
     return textures
+  
+  def save(self, path:str) -> None:
+    layer_data = {
+      'bg':self._texture_layer_maps['-1'].get_save_data(),
+      'mg':self._texture_layer_maps['0'].get_save_data(),
+      'fg':self._texture_layer_maps['1'].get_save_data()
+    }
+
+    with gzip.open(path, 'wb') as f:
+      f.write(zlib.compress(pickle.dumps(layer_data)))
+    
+  def load(self, path:str) -> None:
+    with gzip.open(path, 'rb') as f:
+      data = pickle.loads(zlib.decompress(f.read()))
+
+      self._texture_layer_maps['-1'].reconstruct(data['bg'])
+      self._texture_layer_maps['0'].reconstruct(data['mg'])
+      self._texture_layer_maps['1'].reconstruct(data['fg'])

@@ -192,21 +192,22 @@ class SpatialHashMap(Element):
 
   def save(self, path:str) -> None:
     'base save method for the spatial hash tree to a json'
+    data = self.get_save_data()
 
+    with gzip.open(path, 'wb') as f:
+      f.write(zlib.compress(pickle.dumps(data)))
+
+  def get_save_data(self) -> Any:
     chunk_data = {}
 
     for chunk_pos in self.chunks:
       chunk_data[chunk_pos] = self.chunks[chunk_pos].get_save_data()
 
-    data = {
+    return {
       'width':self.CHUNK_WIDTH,
       'size':self.TILE_SIZE,
       'data':chunk_data
     }
-
-    with gzip.open(path, 'wb') as f:
-      f.write(zlib.compress(pickle.dumps(data)))
-
 
   def load(self, path:str) -> None:
     'base load method for the spatial hash tree to a json'
