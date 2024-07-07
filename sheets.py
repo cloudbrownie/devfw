@@ -11,56 +11,6 @@ except:
 MARKER  : tuple = 255,  41, 250, 255
 CONE    : tuple =  10, 249, 249, 255
 
-BITMASK_8BIT_MAP = {
-  2: 1, 
-  8: 2, 
-  10: 3, 
-  11: 4, 
-  16: 5, 
-  18: 6, 
-  22: 7, 
-  24: 8, 
-  26: 9, 
-  27: 10, 
-  30: 11, 
-  31: 12, 
-  64: 13, 
-  66: 14, 
-  72: 15, 
-  74: 16, 
-  75: 17, 
-  80: 18, 
-  82: 19, 
-  86: 20, 
-  88: 21, 
-  90: 22, 
-  91: 23, 
-  94: 24, 
-  95: 25, 
-  104: 26, 
-  106: 27, 
-  107: 28, 
-  120: 29, 
-  122: 30, 
-  123: 31, 
-  126: 32, 
-  127: 33, 
-  208: 34, 
-  210: 35, 
-  214: 36, 
-  216: 37, 
-  218: 38, 
-  219: 39, 
-  222: 40, 
-  223: 41, 
-  248: 42, 
-  250: 43, 
-  251: 44, 
-  254: 45, 
-  255: 46, 
-  0: 47
-}
-
 class Sheets(Singleton):
   def __init__(self):
     super().__init__()
@@ -126,7 +76,7 @@ class Sheets(Singleton):
           self.configs[name]['weights'].append([])
           for i in range(len(self.sheets[name]['dat'][row])):
             self.configs[name]['offsets'][row].append((0, 0))
-            self.configs[name]['weights'][row].append(2 * i + 1)
+            self.configs[name]['weights'][row].append(1)
 
   def load_sheets(self, path_data:list[tuple[str, bool]]) -> None:
     for path, cfg in path_data:
@@ -181,6 +131,8 @@ class Sheets(Singleton):
     elif sheet_cnfg['bits'] == 8:
       ...
 
+    return bitmask
+
   def save_sheet(self, name:str, sheet:pygame.Surface, rects:list, gen_config_template:bool=False) -> None:
 
     # compute final size of sheet
@@ -218,4 +170,19 @@ class Sheets(Singleton):
     pygame.image.save(output, name)
 
     if gen_config_template:
-      ...
+      config = {
+        'bits':4,
+        'offsets':[],
+        'weights':[]
+      }
+
+      for row in range(len(self.sheets[name]['dat'])):
+        config[name]['offsets'].append([])
+        config[name]['weights'].append([])
+        for i in range(len(self.sheets[name]['dat'][row])):
+          config[name]['offsets'][row].append((0, 0))
+          config[name]['weights'][row].append(1)
+
+      json_name = name.removesuffix('.png')
+      with open(json_name, 'w') as file:
+        json.dump(config, file)
