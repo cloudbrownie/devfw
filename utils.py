@@ -1,6 +1,8 @@
 from functools import partial
 from dataclasses import dataclass
 
+_base64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
 def read_file(path:str) -> str:
   f = open(path, 'r')
   data = f.read()
@@ -9,6 +11,15 @@ def read_file(path:str) -> str:
 
 def bind_func(func:callable, *args, **kwargs) -> callable:
   return partial(func, *args, **kwargs)
+
+def contains(x:float, y:float, w:float, h:float, pos:'point2d') -> bool:
+  return x <= pos.x <= x + w and y <= pos.y <= y + h
+
+def flatten(row:int, col:int, row_size:int) -> int:
+  return row * row_size + col
+
+def reshape(value:int, row_size:int) -> int:
+  return value // row_size, value % row_size
 
 @dataclass
 class size2d:

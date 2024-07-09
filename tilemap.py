@@ -4,10 +4,10 @@ from typing import Any
 
 try:
   from .spatialhash import Chunk, SpatialHashMap
-  from .utils   import point2d
+  from .utils       import point2d, reshape
 except:
-  from spatialhash import Chunk, SpatialHashMap
-  from utils   import point2d
+  from spatialhash  import Chunk, SpatialHashMap
+  from utils        import point2d, reshape
 
 class TileChunk(Chunk):
   'chunk element used for storing collidable tile hitboxes'
@@ -20,21 +20,7 @@ class TileChunk(Chunk):
     'returns list of collidable rects in the chunk'
     # if collidables are outdated, recompute all rects
     if self.outdated:
-      self.collidables = []
-      for row in range(self.chunk_width):
-        for col in range(self.chunk_width):
-          if self.grid[row][col] == 0:
-            continue
-
-          rect = pygame.Rect(
-            col * self.tile_size + self.chunk_pos.x * self.chunk_size,
-            row * self.tile_size + self.chunk_pos.y * self.chunk_size,
-            self.tile_size,
-            self.tile_size
-          )
-
-          self.collidables.append(rect)
-      self.outdated = False
+      self.optimize()
 
     return self.collidables
 
@@ -42,7 +28,6 @@ class TileChunk(Chunk):
     'greedy meshes the collidables into larger blocks'
     processed = [[False]*self.chunk_width for _ in range(self.chunk_width)]
     boxes = []
-
 
     for y in range(self.chunk_width):
       for x in range(self.chunk_width):
@@ -83,25 +68,38 @@ class TileChunk(Chunk):
 
   def get_save_data(self) -> Any:
     'returns a saveable object with enough data to reconstruct this chunk'
-    bitstring = ''
-    for row in self.grid:
-      for col in row:
-        bitstring += str(col)
+    data_str = ''
+    curr = 0
+    run = 0
 
-    return bitstring
+    for i in range(self.chunk_width ** 2):
+      row, col = reshape(i, self.chunk_width)
+      if self.grid[row][col] != curr:
+        data_str += str(run) + '/'
+        run = 1
+        curr = self.grid[row][col]
+      else:
+        run += 1
+    data_str += str(run)
+
+    return data_str
 
   def reconstruct(self, data:Any) -> None:
-    self.count = 0
+    super().reconstruct()
     self.collidables = []
 
-    row = 0
-    col = 0
-    for i in range(len(data)):
-      if i % self.tile_size == 0 and i > 0:
-        row += 1
-        col = 0
-      self.grid[row][col] = int(data[i])
-      col += 1
+    runs = [int(run) for run in data.split('/')]
+    curr = 0
+    i = 0
+    for run in runs:
+      if curr == 1:
+        self.count += run
+
+      for _ in range(run):
+        row, col = reshape(i, self.chunk_width)
+        self.grid[row][col] = curr
+        i += 1
+      curr = 1 if curr == 0 else 0
 
     self.optimize()
 
@@ -114,12 +112,10 @@ class TileSHMap(SpatialHashMap):
   def add_tile(self, worldx: float, worldy: float) -> None:
     'adds a collision hitbox to the world at worldx, worldy'
     super().add_tile(worldx, worldy, 1)
-    self.chunks[self.get_chunk_tag(worldx, worldy)].optimize()
 
   def del_tile(self, worldx:float, worldy:float, del_empty:bool=True) -> None:
     'deletes a collision hitbox from the world at worldx, worldy'
     super().del_tile(worldx, worldy, del_empty=del_empty)
-    self.chunks[self.get_chunk_tag(worldx, worldy)].optimize()
 
   def get_terrain(self, query:pygame.Rect, pad:bool=True) -> list[pygame.Rect]:
     'returns list of pygame.Rects representing collidable terrain in the query region'
@@ -130,4 +126,3 @@ class TileSHMap(SpatialHashMap):
       terrain.extend(self.chunks[tag].get_collidables())
 
     return terrain
-

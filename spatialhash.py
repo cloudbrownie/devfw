@@ -29,14 +29,14 @@ class Chunk(Element):
 
   def add_item(self, row:int, col:int, data:Any) -> None:
     'add item to chunk at <row>, <col>'
-    if self.grid[row][col] == None:
+    if self.grid[row][col] == self.default:
       self.count += 1
     self.grid[row][col] = data
     self.outdated = True
 
   def del_item(self, row:int, col:int) -> Any:
     'returns item in chunk at <row>, <col> and deletes it'
-    if self.grid[row][col] != None:
+    if self.grid[row][col] != self.default:
       self.count -= 1
     item = self.grid[row][col]
     self.grid[row][col] = self.default
@@ -55,14 +55,21 @@ class Chunk(Element):
     'returns item in chunk at <row>, <col> and replaces with new item'
     item = self.grid[row][col]
     self.grid[row][col] = data
+    self.outdated = True
     return item
 
   def get_save_data(self) -> Any:
     'returns a saveable object with enough data to reconstruct this chunk'
     return None
 
-  def reconstruct(self, data:Any) -> None:
+  def reconstruct(self) -> None:
     'reconstructs chunk with given save data'
+    self.grid        : list[list[Any]] = [[self.default for _ in range(self.chunk_width)] for _ in range(self.chunk_width)]
+    self.count       : int = 0
+    self.outdated    : bool = True
+
+  def __getstate__(self) -> object:
+    return self.grid
 
 class SpatialHashMap(Element):
   'generic spatial hash implementation'
@@ -162,40 +169,27 @@ class SpatialHashMap(Element):
     col, row = self.get_chunk_grid_pos(worldx, worldy)
     return self.chunks[chunk_tag].check_item(row, col)
 
-  def get_chunks_in_rect(self, query:pygame.Rect, pad:bool=True) -> list[str]:
+  def get_chunks_in_rect(self, query:pygame.Rect, pad:bool=True, include_empty:bool=False) -> list[str]:
     'returns the chunk tags of all chunks within query rect'
-    x_start  = query.x // self.CHUNK_SIZE
-    y_start  = query.y // self.CHUNK_SIZE
-    x_chunks = query.w // self.CHUNK_SIZE
-    y_chunks = query.h // self.CHUNK_SIZE
+    x_left = query.left // self.CHUNK_SIZE
+    x_right = query.right // self.CHUNK_SIZE
+    y_top = query.top // self.CHUNK_SIZE
+    y_bot = query.bottom // self.CHUNK_SIZE
 
-    if pad:
-      x_start -= 1
-      y_start -= 1
-      x_chunks += 3
-      y_chunks += 3
-
-    x_chunk_range = range(x_start, x_start + x_chunks, 1)
-    y_chunk_range = range(y_start, y_start + y_chunks, 1)
+    x_chunk_range = range(x_left, x_right + 1, 1)
+    y_chunk_range = range(y_top, y_bot + 1, 1)
 
     chunks = []
 
     for chunk_x in x_chunk_range:
       for chunk_y in y_chunk_range:
         chunk_tag = f'{chunk_x},{chunk_y}'
-        if chunk_tag not in self.chunks:
+        if chunk_tag not in self.chunks and not include_empty:
           continue
 
         chunks.append(chunk_tag)
 
     return chunks
-
-  def save(self, path:str) -> None:
-    'base save method for the spatial hash tree to a json'
-    data = self.get_save_data()
-
-    with gzip.open(path, 'wb') as f:
-      f.write(zlib.compress(pickle.dumps(data)))
 
   def get_save_data(self) -> Any:
     chunk_data = {}
@@ -209,22 +203,118 @@ class SpatialHashMap(Element):
       'data':chunk_data
     }
 
-  def load(self, path:str) -> None:
+  def save_to_path(self, path:str) -> None:
+    'base save method for the spatial hash tree to a json'
+    data = self.get_save_data()
+
+    with gzip.open(path, 'wb') as f:
+      f.write(zlib.compress(pickle.dumps(data)))
+
+
+  def load_from_data(self, data:Any) -> None:
+    chunk_data  = data['data']
+    chunk_width = data['width']
+    tile_size   = data['size']
+
+    self.chunks.clear()
+
+    for chunk_hash in chunk_data:
+
+      chunk_pos = point2d(*self._unformat_chunk_tag(chunk_hash))
+      self.chunks[chunk_hash] = self.chunk_type(chunk_pos, chunk_width, tile_size)
+
+      self.chunks[chunk_hash].reconstruct(chunk_data[chunk_hash])
+
+  def load_from_path(self, path:str) -> None:
     'base load method for the spatial hash tree to a json'
 
     with gzip.open(path, 'rb') as f:
       data = pickle.loads(zlib.decompress(f.read()))
 
-      chunk_data  = data['data']
-      chunk_width = data['width']
-      tile_size   = data['size']
+      self.load_from_data(data)
 
-      self.chunks.clear()
+class LayeredSHMap(Element):
+  'map of multiple texture spatial hash structures for texture layering. contains a background, middleground, and foreground layer.'
 
-      for chunk_hash in chunk_data:
+  def __init__(self, hashmap:SpatialHashMap, chunk_width:int=16, tile_size:int=16):
+    super().__init__()
 
-        chunk_pos = point2d(*self._unformat_chunk_tag(chunk_hash))
-        self.chunks[chunk_hash] = self.chunk_type(chunk_pos, chunk_width, tile_size)
+    self._current_editing_layer : int = 1
 
-        self.chunks[chunk_hash].reconstruct(chunk_data[chunk_hash])
+    self._texture_layers     : list                = ['-1', '0', '1']
+    self._texture_layer_maps : dict[str, hashmap] = {}
+
+    for layer in self._texture_layers:
+      self._texture_layer_maps[layer] = hashmap(chunk_width, tile_size)
+
+  @property
+  def layer(self) -> str:
+    'current editing layer'
+    if self._current_editing_layer == 0:
+      return 'background'
+    if self._current_editing_layer == 1:
+      return 'middleground'
+    return 'foreground'
+  
+  @property
+  def editing_layer(self) -> str:
+    'current editing layer as stored'
+    return self._texture_layers[self._current_editing_layer]
+
+  def increment_editing_layer(self) -> None:
+    'increment the current editing layer'
+    if self._current_editing_layer < 2:
+      self._current_editing_layer += 1
+
+  def decrement_editing_layer(self) -> None:
+    'decrement the current editing layer'
+    if self._current_editing_layer > 0:
+      self._current_editing_layer -= 1
+
+  def add_tile(self, worldx:float, worldy:float, sheet_id:int, tex_row:int, tex_col:int) -> None:
+    'adds the texture data to the world at worldx, worldy in the current editing layer'
+    self._texture_layer_maps[self.editing_layer].add_tile(worldx, worldy, sheet_id, tex_row, tex_col)
+
+  def del_tile(self, worldx:float, worldy:float) -> Any:
+    'deletes the texture data from the world at worldx, worldy in the current editing layer'
+    return self._texture_layer_maps[self.editing_layer].del_tile(worldx, worldy)
+
+  def check_tile(self, worldx:float, worldy:float) -> bool:
+    'returns boolean if texture data exists at worldx, worldy'
+    return self._texture_layer_maps[self.editing_layer].check_tile(worldx, worldy)
+
+  def update_tile_texture(self, worldx:float, worldy:float, bitmask:int, variant:int) -> Any:
+    'updates the tile texture info in the world at worldx, worldy in the current editing layer'
+    return self._texture_layer_maps[self.editing_layer].update_tile_texture(worldx, worldy, bitmask, variant)
+
+  def get_map(self, query:pygame.Rect) -> list[point2d, pygame.Surface]:
+    'returns list of pygame.Surfaces representing the map in the query region, ordered by layer'
+    textures = []
+    for layer in self._texture_layers:
+      textures.append(self._texture_layer_maps[layer].get_terrain(query))
+    return textures
+  
+  def get_save_data(self) -> Any:
+    return {
+      'bg':self._texture_layer_maps['-1'].get_save_data(),
+      'mg':self._texture_layer_maps['0'].get_save_data(),
+      'fg':self._texture_layer_maps['1'].get_save_data()
+    }
+
+  def save_to_path(self, path:str) -> None:
+    layer_data = self.get_save_data()
+
+    with gzip.open(path, 'wb') as f:
+      f.write(zlib.compress(pickle.dumps(layer_data)))
+
+  def load_from_data(self, data:Any) -> None:
+    self._texture_layer_maps['-1'].load_from_data(data['bg'])
+    self._texture_layer_maps['0'].load_from_data(data['mg'])
+    self._texture_layer_maps['1'].load_from_data(data['fg'])
+
+  def load_from_path(self, path:str) -> None:
+    with gzip.open(path, 'rb') as f:
+      data = pickle.loads(zlib.decompress(f.read()))
+      
+      self.load_from_data(data)
 

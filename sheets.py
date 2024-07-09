@@ -1,12 +1,15 @@
 import pygame
 import json
+import pprint
 import os
 import random
 
 try:
   from .elems import Singleton
+  from .utils import size2d
 except:
   from elems  import Singleton
+  from utils  import size2d
 
 MARKER  : tuple = 255,  41, 250, 255
 CONE    : tuple =  10, 249, 249, 255
@@ -100,6 +103,19 @@ class Sheets(Singleton):
 
     return sheet_data['dat'][row][col]
   
+  def get_texture_offsets(self, sheet_id:int, row:int, col:int) -> tuple[int, int]:
+    sheet_name = self.sheet_map[sheet_id]
+    sheet_cnfg = self.configs[sheet_name]
+
+    return sheet_cnfg['offsets'][row][col]
+
+  
+  def get_texture_size(self, sheet_id:int, row:int, col:int) -> tuple:
+    sheet_name = self.sheet_map[sheet_id]
+    sheet_data = self.sheets[sheet_name]
+
+    return sheet_data['dat'][row][col].get_size()
+  
   def get_random_texture_type(self, sheet_id:int, row:int) -> int:
     sheet_name = self.sheet_map[sheet_id]
     sheet_data = self.sheets[sheet_name]
@@ -176,13 +192,13 @@ class Sheets(Singleton):
         'weights':[]
       }
 
-      for row in range(len(self.sheets[name]['dat'])):
-        config[name]['offsets'].append([])
-        config[name]['weights'].append([])
-        for i in range(len(self.sheets[name]['dat'][row])):
-          config[name]['offsets'][row].append((0, 0))
-          config[name]['weights'][row].append(1)
+      for row in range(len(rects)):
+        config['offsets'].append([])
+        config['weights'].append([])
+        for i in range(len(rects[row])):
+          config['offsets'][row].append((0, 0))
+          config['weights'][row].append(1)
 
       json_name = name.removesuffix('.png')
-      with open(json_name, 'w') as file:
-        json.dump(config, file)
+      with open(f'{json_name}.json', 'w') as f:
+        f.write(pprint.pformat(config, indent=2).replace("'", '"'))

@@ -1,18 +1,14 @@
 import pygame
-import pickle
-import gzip
-import zlib
 
 from typing import Any
 
 try:
   from .spatialhash import Chunk, SpatialHashMap
-  from .elems       import Element
-  from .utils       import point2d
+  from .utils       import point2d, reshape, _base64chars
 except:
-  from scripts.devfw.spatialhash  import Chunk, SpatialHashMap
-  from elems                      import Element
-  from utils                      import point2d
+  from spatialhash  import Chunk, SpatialHashMap
+  from utils        import point2d, reshape, _base64chars
+
 
 class TexChunk(Chunk):
   'chunk element used for storing tile textures'
@@ -42,7 +38,8 @@ class TexChunk(Chunk):
 
       for (pos, (sheet_id, tex_row, tex_col)) in self.get_textures():
         texture = self.elements['Sheets'].get_texture(sheet_id, tex_row, tex_col)
-        self.cached_surf.blit(texture, (pos.x + self.surf_buffer, pos.y + self.surf_buffer))
+        offx, offy = self.elements['Sheets'].get_texture_offsets(sheet_id, tex_row, tex_col)
+        self.cached_surf.blit(texture, (pos.x + offx + self.surf_buffer, pos.y + offy + self.surf_buffer))
 
       self.outdated = False
 
@@ -57,8 +54,81 @@ class TexChunk(Chunk):
 
     return self.swap_item(row, col, (sheet_id, new_row, new_col))
   
+  def get_save_data(self) -> Any:
+    id_str = ''
+
+    tex_types = []
+    for i in range(self.chunk_width ** 2):
+      row, col = reshape(i, self.chunk_width)
+      data = self.grid[row][col]
+
+      if data == None:
+        id_str += 'x'
+        continue
+
+      data_id = 0
+
+      if data not in tex_types:
+        data_id = len(tex_types)
+        tex_types.append(data)
+      else:
+        data_id = tex_types.index(data)
+
+      data_id = _base64chars[data_id]
+
+      id_str += f'{data_id}'
+
+    data_str = ''
+    run = 0
+    for i in range(len(id_str)):
+      if id_str[i] == 'x':
+        run += 1
+      else:
+        if run > 0:
+          data_str += f'.{run}.'
+        run = 0
+        data_str += id_str[i]
+
+    data_str = data_str.removesuffix('.')
+
+    tex_str = ''
+    for (sheet_id, tex_row, tex_col) in tex_types:
+      tex_str += f'{_base64chars[sheet_id]}{_base64chars[tex_row]}{_base64chars[tex_col]}.'
+
+    tex_str = tex_str.removesuffix('.')
+
+    return data_str + '|' + tex_str
+  
   def reconstruct(self, data:Any) -> None:
-    ...
+    super().reconstruct()
+    data_str, tex_str = data.split('|')
+
+    # reconstruct texture data
+    tex_data_types = []
+    tex_types = [tex_type for tex_type in tex_str.split('.') if tex_type != '']
+    for compressed in tex_types:
+      sheet_id = _base64chars.index(compressed[0])
+      tex_row  = _base64chars.index(compressed[1])
+      tex_col  = _base64chars.index(compressed[2])
+
+      tex_data_types.append((sheet_id, tex_row, tex_col))
+
+    # reconstruct grid
+    runs = data_str.split('.')
+    running = runs[0] == ''
+    if running:
+      runs.pop(0)
+    i = 0
+    for run in runs:
+      if running:
+        i += int(run)
+      else:
+        for j in range(len(run)):
+          row, col = reshape(i, self.chunk_width)
+          self.grid[row][col] = tex_data_types[_base64chars.index(run[j])]
+          i += 1
+
+      running = not running
 
 class TexSHMap(SpatialHashMap):
   'spatial hash structure for storing texture chunks'
@@ -66,7 +136,7 @@ class TexSHMap(SpatialHashMap):
   def __init__(self, chunk_width:int=16, tile_size:int=16):
     super().__init__(TexChunk, chunk_width=chunk_width, tile_size=tile_size)
 
-  def add_tile(self, worldx:float, worldy:float, sheet_id:int, tex_row:int, tex_col:int, ) -> None:
+  def add_tile(self, worldx:float, worldy:float, sheet_id:int, tex_row:int, tex_col:int) -> None:
     'adds the texture data to the world at worldx, worldy'
     super().add_tile(worldx, worldy, (sheet_id, tex_row, tex_col))
   
@@ -82,94 +152,10 @@ class TexSHMap(SpatialHashMap):
       textures.append((chunk_pos, self.chunks[tag].get_chunk_texture()))
 
     return textures
-  
+
   def update_tile_texture(self, worldx:float, worldy:float, new_bitmask:int=-1, new_variant:int=-1) -> Any:
     'updates the tile texture info at row, col'
     chunk_tag = self.get_chunk_tag(worldx, worldy)
     col, row = self.get_chunk_grid_pos(worldx, worldy)
     return self.chunks[chunk_tag].update_tile_texture(row, col, new_bitmask, new_variant)
   
-  def reconstruct(self, data:Any) -> None:
-    
-    for chunk_tag in data:
-      
-      self.chunks[chunk_tag].reconstruct(data[chunk_tag])
-
-class TextureMap(Element):
-  'map of multiple texture spatial hash structures for texture layering. contains a background, middleground, and foreground layer.'
-
-  def __init__(self, chunk_width:int=16, tile_size:int=16):
-    super().__init__()
-
-    self._current_editing_layer : int = 1
-
-    self._texture_layers     : list                = ['-1', '0', '1']
-    self._texture_layer_maps : dict[str, TexSHMap] = {}
-
-    for layer in self._texture_layers:
-      self._texture_layer_maps[layer] = TexSHMap(chunk_width, tile_size)
-
-  @property
-  def layer(self) -> str:
-    'current editing layer'
-    if self._current_editing_layer == 0:
-      return 'background'
-    if self._current_editing_layer == 1:
-      return 'middleground'
-    return 'foreground'
-  
-  @property
-  def editing_layer(self) -> str:
-    'current editing layer as stored'
-    return self._texture_layers[self._current_editing_layer]
-
-  def increment_editing_layer(self) -> None:
-    'increment the current editing layer'
-    if self._current_editing_layer < 2:
-      self._current_editing_layer += 1
-
-  def decrement_editing_layer(self) -> None:
-    'decrement the current editing layer'
-    if self._current_editing_layer > 0:
-      self._current_editing_layer -= 1
-
-  def add_tile(self, worldx:float, worldy:float, sheet_id:int, tex_row:int, tex_col:int) -> None:
-    'adds the texture data to the world at worldx, worldy in the current editing layer'
-    self._texture_layer_maps[self.editing_layer].add_tile(worldx, worldy, sheet_id, tex_row, tex_col)
-
-  def del_tile(self, worldx:float, worldy:float) -> Any:
-    'deletes the texture data from the world at worldx, worldy in the current editing layer'
-    return self._texture_layer_maps[self.editing_layer].del_tile(worldx, worldy)
-
-  def check_tile(self, worldx:float, worldy:float) -> bool:
-    'returns boolean if texture data exists at worldx, worldy'
-    return self._texture_layer_maps[self.editing_layer].check_tile(worldx, worldy)
-
-  def update_tile_texture(self, worldx:float, worldy:float, bitmask:int, variant:int) -> Any:
-    'updates the tile texture info in the world at worldx, worldy in the current editing layer'
-    return self._texture_layer_maps[self.editing_layer].update_tile_texture(worldx, worldy, bitmask, variant)
-
-  def get_map(self, query:pygame.Rect) -> list[point2d, pygame.Surface]:
-    'returns list of pygame.Surfaces representing the map in the query region, ordered by layer'
-    textures = []
-    for layer in self._texture_layers:
-      textures.extend(self._texture_layer_maps[layer].get_terrain(query))
-    return textures
-  
-  def save(self, path:str) -> None:
-    layer_data = {
-      'bg':self._texture_layer_maps['-1'].get_save_data(),
-      'mg':self._texture_layer_maps['0'].get_save_data(),
-      'fg':self._texture_layer_maps['1'].get_save_data()
-    }
-
-    with gzip.open(path, 'wb') as f:
-      f.write(zlib.compress(pickle.dumps(layer_data)))
-    
-  def load(self, path:str) -> None:
-    with gzip.open(path, 'rb') as f:
-      data = pickle.loads(zlib.decompress(f.read()))
-
-      self._texture_layer_maps['-1'].reconstruct(data['bg'])
-      self._texture_layer_maps['0'].reconstruct(data['mg'])
-      self._texture_layer_maps['1'].reconstruct(data['fg'])
