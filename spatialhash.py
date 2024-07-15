@@ -7,10 +7,10 @@ from typing import Any
 
 try:
   from .elems import Element
-  from .utils import point2d
+  from .utils import point2d, reshape
 except:
   from elems import Element
-  from utils import point2d
+  from utils import point2d, reshape
 
 
 class Chunk(Element):
@@ -67,6 +67,19 @@ class Chunk(Element):
     self.grid        : list[list[Any]] = [[self.default for _ in range(self.chunk_width)] for _ in range(self.chunk_width)]
     self.count       : int = 0
     self.outdated    : bool = True
+
+  def get_grid_positions(self, query:pygame.Rect) -> list:
+    positions = []
+    for i in range(self.chunk_width ** 2):
+      row, col = reshape(i, self.chunk_width)
+      if self.grid[row][col] != self.default:
+        x = col * self.tile_size + self.chunk_pos.x * self.chunk_size
+        y = row * self.tile_size + self.chunk_pos.y * self.chunk_size
+
+        if query.collidepoint(x, y):
+          positions.append(point2d(x, y))
+
+    return positions
 
   def __getstate__(self) -> object:
     return self.grid
@@ -190,6 +203,13 @@ class SpatialHashMap(Element):
         chunks.append(chunk_tag)
 
     return chunks
+  
+  def get_grid_positions(self, query:pygame.Rect, pad:bool=True) -> list:
+    positions = []
+    for chunk_tag in self.get_chunks_in_rect(query, pad):
+      positions.extend(self.chunks[chunk_tag].get_grid_positions(query))
+
+    return positions
 
   def get_save_data(self) -> Any:
     chunk_data = {}

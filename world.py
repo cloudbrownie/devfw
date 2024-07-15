@@ -21,9 +21,9 @@ class World(Element):
   def __init__(self, chunk_width:int=16, tile_size:int=16):
     super().__init__()
 
-    self._tile_map    : TileSHMap   = TileSHMap(chunk_width, tile_size)
-    self._texture_map : LayeredSHMap = LayeredSHMap(TexSHMap, chunk_width, tile_size)
-    self._decor_map   : LayeredSHMap = LayeredSHMap(DecorSHMap, chunk_width, tile_size)
+    self._tile_map    : TileSHMap     = TileSHMap(chunk_width, tile_size)
+    self._texture_map : LayeredSHMap  = LayeredSHMap(TexSHMap, chunk_width, tile_size)
+    self._decor_map   : LayeredSHMap  = LayeredSHMap(DecorSHMap, chunk_width, tile_size)
 
   @property
   def texture_layer(self) -> str:
@@ -39,6 +39,9 @@ class World(Element):
 
   def get_terrain(self, query:pygame.Rect) -> list:
     return self._tile_map.get_terrain(query)
+  
+  def get_grid_positions(self, query:pygame.Rect) -> list:
+    return self._tile_map.get_grid_positions(query)
 
   # texturemap operations -----------------------------------------------------
 
@@ -109,6 +112,8 @@ class World(Element):
 
     with gzip.open(path, 'rb') as f:
       data = pickle.loads(zlib.decompress(f.read()))
+
+      print(data)
 
       self._tile_map.load_from_data(data['tile'])
       self._texture_map.load_from_data(data['texture'])

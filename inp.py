@@ -12,13 +12,15 @@ except:
 
 def _verify_key_modifiers(mods:int) -> bool:
     'determines if the pressed modifiers match the query'
-    return pygame.key.get_mods() == mods
+    return pygame.key.get_mods() == mods or mods == KeyListener.IGNORE_MODS
 
 class KeyListener:
   'used the input singleton to listen to keys and trigger functions'
   ONPRESS = 1
   CONTINUOUS = 2
   ONRELEASE = 3
+
+  IGNORE_MODS = -1
 
   def __init__(self):
     self.pressed : bool = False
@@ -182,7 +184,7 @@ class Input(Singleton):
     'returns the mouse position as a vector2d'
     return self.mouse.pos.copy()
 
-  def bind_key(self, key:int, func:callable, when:int=KeyListener.CONTINUOUS, mods:int=0, delay:float=0.0) -> None:
+  def bind_key(self, key:int, func:callable, when:int=KeyListener.ONPRESS, mods:int=0, delay:float=0.0) -> None:
     'binds a function to a specific key to be triggered based on \'when\' and given modifiers \'mods\''
     listener = self.keyboard_listeners.get(key, KeyListener())
     listener.bind(func, when, delay=delay, mods=mods)

@@ -47,11 +47,13 @@ class point2d:
 
   def __str__(self) -> str:
     return f'({self.x}, {self.y})'
-    
+  
 if __name__ == '__main__':
   a = point2d(3, 4)
   b = point2d(1, 1)
   c = a + b
   d = a - b
 
-  print(a, b, c, d)
+  e = point2d(1, 1)
+
+  print(a, b, c, d, b == e)
